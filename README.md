@@ -22,14 +22,6 @@ Core Focus
 - Payment Management
 - Course Management
 
-Features
-
-- Course catalog & lesson (REST), User dashboard (GraphQL), Live chat & notifications (Websocket, FCM, Local Notification), Live video classes (WebRTC), Certificate verification service (SOAP)
-- Data store (Supabase, Firebase) and object storage (Supabase) Online and Offline
-- Authentication (Supabase, Firebase)
-- Payment (SSLCOMMERZE, STRIPE, PAYPAL, BKASH, COUPONS) and Transaction History (Firebase)
-- Activities (Firebase)
-
 ## Disclaimer
 
 The live application, database, and related backend services are provided solely for demonstration during the job application process.
