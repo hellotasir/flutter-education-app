@@ -1,8 +1,8 @@
 # Flutter Education App
 
-Project Name: EduMap
-Category: Mobile Application
-Platfomr: Android
+Project Name: EduMap,
+Category: Mobile Application,
+Platfomr: Android,
 Version: 1.0.0
 
 ## Summary
