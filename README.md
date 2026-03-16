@@ -2,8 +2,10 @@
 
 Project Name: "EDUMAP",
 Category: Mobile Application,
-Platfomr: Android,
+Platform: Android,
 Version: 1.0.0
+
+A modern Flutter-based education app featuring course browsing, video lessons, quizzes, and progress tracking, built as a portfolio project to demonstrate scalable mobile architecture and real-world learning platform features.
 
 ## Summary
 
@@ -11,6 +13,21 @@ This repository contains a portfolio project created to demonstrate my software 
 
 - The project highlights application architecture, and modern development practices for building scalable and maintainable mobile applications.
 - The project is intended for recruiters and technical reviewers to evaluate coding standards, project structure, mobile UI/UX implementation, and overall engineering approach in cross-platform development.
+
+## Project Features
+
+Core Focus
+
+- User Management
+- Payment Management
+- Course Management
+
+Features
+
+- Course catalog & lesson (REST), User dashboard (GraphQL), Live chat & notifications (Websocket), Live video classes (WebRTC), Certificate verification service (SOAP)
+- Data store (Supabase, Firebase) and object storage (Supabase) Online and Offline
+- Authentication (Supabase, Firebase)
+- Payment (SSLCOMMERZE, STRIPE, PAYPAL, BKASH, COUPONS) and Transaction History (Firebase)
 
 ## Disclaimer
 
