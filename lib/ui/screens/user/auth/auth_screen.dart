@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/model/repositories/auth_repository.dart';
 import 'package:flutter_education_app/ui/screens/home_screen.dart';
-import 'package:flutter_education_app/ui/screens/login_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/auth/login_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/error_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
+class AuthScreen extends StatelessWidget {
+  const AuthScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final supabase = Supabase.instance.client;
-
     return StreamBuilder<AuthState>(
-      stream: supabase.auth.onAuthStateChange,
+      stream: AuthRepository().authChanges,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return ErrorScreen(
+            errorType: ErrorType.server,
+            message: snapshot.error?.toString(),
+            onRetry: () {},
           );
         }
 

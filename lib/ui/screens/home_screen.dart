@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/model/repositories/auth_repository.dart';
+import 'package:flutter_education_app/routers/app_navigator.dart';
+import 'package:flutter_education_app/ui/screens/user/auth/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'login_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   Future<void> logout(BuildContext context) async {
-    final supabase = Supabase.instance.client;
+    await AuthRepository().logout();
 
-    await supabase.auth.signOut();
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+    if (AuthRepository().currentSession == null) {
+      AppNavigator(screen: LoginScreen()).navigate(context);
+    }
   }
 
   @override

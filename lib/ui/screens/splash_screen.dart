@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/model/constants/auth_gate.dart';
+import 'package:flutter_education_app/model/constants/app_details.dart';
+import 'package:flutter_education_app/ui/screens/user/auth/auth_screen.dart';
+import 'package:flutter_education_app/routers/app_navigator.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,19 +22,19 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const AuthGate()),
-    );
+    AppNavigator(screen: const AuthScreen()).navigate(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       body: Center(
         child: Text(
-          "Education App",
-          style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+          appName,
+          style: TextStyle(
+            fontSize: MediaQuery.of(context).size.width * 0.20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );

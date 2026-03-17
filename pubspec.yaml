@@ -8,9 +8,11 @@ environment:
 
 dependencies:
   bloc: ^9.2.0
+  connectivity_plus: ^7.0.0
   flutter:
     sdk: flutter
   flutter_dotenv: ^6.0.0
+  flutter_riverpod: ^3.3.1
   get: ^4.7.3
   google_fonts: ^8.0.2
   provider: ^6.1.5+1

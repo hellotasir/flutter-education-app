@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/model/constants/app_details.dart';
 import 'package:flutter_education_app/ui/theme/app_theme.dart';
+import 'package:flutter_education_app/ui/widgets/network_guard.dart';
 
 class MaterialWidget extends StatelessWidget {
   final Widget child;
@@ -13,7 +14,7 @@ class MaterialWidget extends StatelessWidget {
       darkTheme: AppTheme.darkTheme,
       theme: AppTheme.lightTheme,
       themeMode: ThemeMode.system,
-      home: child,
+      home: NetworkGuard(child: child),
     );
   }
 }
