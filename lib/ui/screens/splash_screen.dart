@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/model/constants/app_details.dart';
 import 'package:flutter_education_app/ui/screens/user/auth/auth_screen.dart';
 import 'package:flutter_education_app/routers/app_navigator.dart';
 
@@ -27,14 +26,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: Center(
-        child: Text(
-          appName,
-          style: TextStyle(
-            fontSize: MediaQuery.of(context).size.width * 0.20,
-            fontWeight: FontWeight.bold,
-          ),
+        child: Image.asset(
+          isDark == ThemeMode.light
+              ? 'assets/edumap-transparent-icon.png'
+              : 'assets/edumap-black-transparent-icon.png',
+          height: 200,
         ),
       ),
     );

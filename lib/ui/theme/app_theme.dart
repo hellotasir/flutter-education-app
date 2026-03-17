@@ -6,7 +6,7 @@ import 'app_input_theme.dart';
 
 class AppTheme {
   static ThemeData lightTheme = ThemeData(
-    useMaterial3: true,
+    useMaterial3: false,
     brightness: Brightness.light,
     scaffoldBackgroundColor: AppColors.lightBackground,
     textTheme: AppTextTheme.lightTextTheme,
@@ -19,7 +19,7 @@ class AppTheme {
   );
 
   static ThemeData darkTheme = ThemeData(
-    useMaterial3: true,
+    useMaterial3: false,
     brightness: Brightness.dark,
     scaffoldBackgroundColor: AppColors.darkBackground,
     textTheme: AppTextTheme.darkTextTheme,

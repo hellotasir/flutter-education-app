@@ -28,8 +28,12 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 flutter:
-  uses-material-design: true
+  uses-material-design: false
   assets:
     - .env.local
     - .env.development
     - .env.production
+    - assets/edumap-icon.png
+    - assets/edumap-black-icon.png
+    - assets/edumap-transparent-icon.png
+    - assets/edumap-black-transparent-icon.png

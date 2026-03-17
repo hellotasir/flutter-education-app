@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/model/constants/app_details.dart';
 import 'package:flutter_education_app/ui/screens/splash_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_education_app/ui/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +22,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
+      title: appName,
+      darkTheme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
       home: SplashScreen(),
     );
