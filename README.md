@@ -28,3 +28,9 @@ The live application, database, and related backend services are provided solely
 These resources may be modified, restricted, or permanently shut down once the evaluation period is complete.
 While the project reflects practical development practices, some components may be simplified or configured specifically for demonstration purposes.
 Long-term availability, maintenance, and production-level guarantees are not provided.
+
+## Third-Party Services Used
+
+- Google Cloud Platform (GCP)
+- Firebase
+- Supabase

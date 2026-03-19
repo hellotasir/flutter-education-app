@@ -1,3 +1,5 @@
+// ignore_for_file: unrelated_type_equality_checks
+
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/ui/screens/user/auth/auth_screen.dart';
 import 'package:flutter_education_app/routers/app_navigator.dart';
@@ -26,11 +28,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark =
+        (Theme.of(context).brightness == Brightness.dark) != ThemeMode.dark;
     return Scaffold(
       body: Center(
         child: Image.asset(
-          isDark == ThemeMode.light
+          isDark
               ? 'assets/edumap-transparent-icon.png'
               : 'assets/edumap-black-transparent-icon.png',
           height: 200,

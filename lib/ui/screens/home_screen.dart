@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/model/repositories/auth_repository.dart';
-import 'package:flutter_education_app/routers/app_navigator.dart';
-import 'package:flutter_education_app/ui/screens/user/auth/login_screen.dart';
+import 'package:flutter_education_app/ui/widgets/material_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -10,8 +9,10 @@ class HomeScreen extends StatelessWidget {
   Future<void> logout(BuildContext context) async {
     await AuthRepository().logout();
 
+    if (!context.mounted) return;
+
     if (AuthRepository().currentSession == null) {
-      AppNavigator(screen: LoginScreen()).navigate(context);
+      Navigator.pop(context);
     }
   }
 
@@ -19,22 +20,23 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Home"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => logout(context),
+    return MaterialWidget(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Home"),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () => logout(context),
+            ),
+          ],
+        ),
+        body: Center(
+          child: Text(
+            "Logged in as\n${user?.email}",
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 20),
           ),
-        ],
-      ),
-
-      body: Center(
-        child: Text(
-          "Logged in as\n${user?.email}",
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 20),
         ),
       ),
     );

@@ -13,6 +13,7 @@ class MaterialWidget extends StatelessWidget {
       title: appName,
       darkTheme: AppTheme.darkTheme,
       theme: AppTheme.lightTheme,
+      debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system,
       home: NetworkGuard(child: child),
     );

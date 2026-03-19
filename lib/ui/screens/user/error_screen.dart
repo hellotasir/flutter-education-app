@@ -150,18 +150,6 @@ class _ErrorScreenState extends State<ErrorScreen>
                           ),
                         ),
                       ),
-                    if (widget.onRetry != null) const SizedBox(height: 12),
-                    if (Navigator.canPop(context))
-                      SizedBox(
-                        width: double.infinity,
-                        child: TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: const Text('Go Back'),
-                        ),
-                      ),
                   ],
                 ),
               ),
