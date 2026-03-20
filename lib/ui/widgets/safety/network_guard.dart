@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/model/services/connectivity_service.dart';
-import '../../ui/screens/user/error_screen.dart';
+import 'package:flutter_education_app/logic/services/connectivity_service.dart';
+import '../../screens/app/error_screen.dart';
 
 class NetworkGuard extends StatefulWidget {
   final Widget child;

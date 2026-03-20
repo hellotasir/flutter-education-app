@@ -2,11 +2,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_education_app/model/constants/app_details.dart';
-import 'package:flutter_education_app/model/repositories/auth_repository.dart';
-import 'package:flutter_education_app/routers/app_navigator.dart';
-import 'package:flutter_education_app/ui/widgets/material_widget.dart';
-import 'package:flutter_education_app/ui/widgets/snackbar_widget.dart';
+import 'package:flutter_education_app/logic/constants/app_details.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
+import 'package:flutter_education_app/logic/routers/app_navigator.dart';
+import 'package:flutter_education_app/ui/screens/auth_screen.dart';
+import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
+import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_button/sign_in_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -71,6 +72,7 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _loading = true);
     try {
       await _repo.login(email, password);
+      AppNavigator(screen: AuthScreen()).navigate(context);
     } catch (e) {
       if (mounted) _showSnackbar(e.toString());
     } finally {
@@ -109,6 +111,8 @@ class _LoginScreenState extends State<LoginScreen>
       idToken: idToken,
       accessToken: authorization.accessToken,
     );
+
+    AppNavigator(screen: AuthScreen()).navigate(context);
   }
 
   void _navigate(Widget screen) =>
@@ -116,8 +120,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        (Theme.of(context).brightness == Brightness.dark) != ThemeMode.dark;
+    final isDark = Theme.of(context).brightness != Brightness.dark;
 
     return MaterialWidget(
       child: Scaffold(
@@ -243,7 +246,10 @@ class _LoginScreenState extends State<LoginScreen>
                       height: 50,
                       child: SignInButton(
                         Buttons.google,
+                        elevation: 0,
+
                         shape: RoundedRectangleBorder(
+                          side: BorderSide(color: Colors.black),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         onPressed: () {

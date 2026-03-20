@@ -1,8 +1,8 @@
 // ignore_for_file: unrelated_type_equality_checks
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/ui/screens/user/auth/auth_screen.dart';
-import 'package:flutter_education_app/routers/app_navigator.dart';
+import 'package:flutter_education_app/ui/screens/auth_screen.dart';
+import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,13 +23,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    AppNavigator(screen: const AuthScreen()).navigate(context);
+    AppNavigator(screen: AuthScreen()).navigate(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark =
-        (Theme.of(context).brightness == Brightness.dark) != ThemeMode.dark;
+    final isDark = Theme.of(context).brightness != Brightness.dark;
     return Scaffold(
       body: Center(
         child: Image.asset(

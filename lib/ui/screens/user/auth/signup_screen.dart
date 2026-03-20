@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/model/repositories/auth_repository.dart';
-import 'package:flutter_education_app/ui/widgets/material_widget.dart';
-import 'package:flutter_education_app/ui/widgets/snackbar_widget.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
+import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
+import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});

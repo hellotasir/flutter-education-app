@@ -2,13 +2,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
+
   User? get currentUser => _client.auth.currentUser;
-
   Session? get currentSession => _client.auth.currentSession;
-
   Stream<AuthState> get authChanges => _client.auth.onAuthStateChange;
-
   bool get isAuthenticated => currentUser != null;
+
   Future<AuthResponse> signInWithPassword({
     required String email,
     required String password,
@@ -37,48 +36,12 @@ class AuthService {
     return await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
-  Future<void> signInWithMagicLink({
-    required String email,
-    String? emailRedirectTo,
-  }) async {
-    await _client.auth.signInWithOtp(
-      email: email,
-      emailRedirectTo: emailRedirectTo,
-    );
-  }
-
-  Future<void> signInWithPhoneOtp({required String phone}) async {
-    await _client.auth.signInWithOtp(phone: phone);
-  }
-
   Future<AuthResponse> verifyEmailOtp({
     required String email,
     required String token,
     required OtpType type,
   }) async {
     return await _client.auth.verifyOTP(email: email, token: token, type: type);
-  }
-
-  Future<AuthResponse> verifyPhoneOtp({
-    required String phone,
-    required String token,
-    required OtpType type,
-  }) async {
-    return await _client.auth.verifyOTP(phone: phone, token: token, type: type);
-  }
-
-  Future<bool> signInWithOAuth(
-    OAuthProvider provider, {
-    String? redirectTo,
-    String? scopes,
-    Map<String, String>? queryParams,
-  }) async {
-    return await _client.auth.signInWithOAuth(
-      provider,
-      redirectTo: redirectTo,
-      scopes: scopes,
-      queryParams: queryParams,
-    );
   }
 
   Future<AuthResponse> signInWithIdToken({
@@ -92,18 +55,6 @@ class AuthService {
       idToken: idToken,
       accessToken: accessToken,
       nonce: nonce,
-    );
-  }
-
-  Future<void> signInWithSSO({
-    String? domain,
-    String? providerId,
-    String? redirectTo,
-  }) async {
-    await _client.auth.signInWithSSO(
-      domain: domain,
-      providerId: providerId,
-      redirectTo: redirectTo,
     );
   }
 
@@ -136,12 +87,6 @@ class AuthService {
     return await _client.auth.resend(type: OtpType.signup, email: email);
   }
 
-  Future<ResendResponse> resendPhoneVerification({
-    required String phone,
-  }) async {
-    return await _client.auth.resend(type: OtpType.sms, phone: phone);
-  }
-
   Future<AuthResponse> refreshSession() async {
     return await _client.auth.refreshSession();
   }
@@ -156,5 +101,48 @@ class AuthService {
 
   Future<void> signOut({SignOutScope scope = SignOutScope.local}) async {
     await _client.auth.signOut(scope: scope);
+  }
+
+  Future<AuthMFAListFactorsResponse> mfaListFactors() async {
+    return await _client.auth.mfa.listFactors();
+  }
+
+  Future<AuthMFAEnrollResponse> mfaEnroll({
+    required String issuer,
+    FactorType factorType = FactorType.totp,
+  }) async {
+    return await _client.auth.mfa.enroll(
+      issuer: issuer,
+      factorType: factorType,
+    );
+  }
+
+  Future<AuthMFAChallengeResponse> mfaChallenge({
+    required String factorId,
+  }) async {
+    return await _client.auth.mfa.challenge(factorId: factorId);
+  }
+
+  Future<AuthMFAVerifyResponse> mfaVerify({
+    required String factorId,
+    required String challengeId,
+    required String code,
+  }) async {
+    return await _client.auth.mfa.verify(
+      factorId: factorId,
+      challengeId: challengeId,
+      code: code,
+    );
+  }
+
+  Future<AuthMFAUnenrollResponse> mfaUnenroll({
+    required String factorId,
+  }) async {
+    return await _client.auth.mfa.unenroll(factorId);
+  }
+
+  Future<AuthMFAGetAuthenticatorAssuranceLevelResponse>
+  mfaGetAuthenticatorAssuranceLevel() async {
+    return await _client.auth.mfa.getAuthenticatorAssuranceLevel();
   }
 }

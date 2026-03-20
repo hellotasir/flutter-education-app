@@ -1,43 +1,44 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/model/repositories/auth_repository.dart';
-import 'package:flutter_education_app/ui/widgets/material_widget.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
+import 'package:flutter_education_app/logic/routers/app_navigator.dart';
+import 'package:flutter_education_app/ui/screens/user/profile_screen.dart';
+import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  HomeScreen({super.key});
+
+  final _repo = AuthRepository();
 
   Future<void> logout(BuildContext context) async {
     await AuthRepository().logout();
 
     if (!context.mounted) return;
 
-    if (AuthRepository().currentSession == null) {
+    if (_repo.currentSession == null) {
       Navigator.pop(context);
     }
   }
 
+  final authRepo = AuthRepository();
+
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
-
     return MaterialWidget(
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Home"),
+          elevation: 0,
+
+          title: const Text("Edumap"),
           actions: [
             IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => logout(context),
+              onPressed: () {
+                AppNavigator(screen: ProfileScreen()).navigate(context);
+              },
+              icon: Icon(Icons.person_rounded),
             ),
           ],
         ),
-        body: Center(
-          child: Text(
-            "Logged in as\n${user?.email}",
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 20),
-          ),
-        ),
+        body: Text(''),
       ),
     );
   }

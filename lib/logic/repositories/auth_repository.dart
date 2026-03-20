@@ -1,15 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/auth_service.dart';
+import '../services/supabase_auth_service.dart';
 
 class AuthRepository {
   final AuthService _service = AuthService();
 
   User? get currentUser => _service.currentUser;
-
   Session? get currentSession => _service.currentSession;
-
   Stream<AuthState> get authChanges => _service.authChanges;
-
   bool get isAuthenticated => _service.isAuthenticated;
 
   Future<void> login(String email, String password) async {
@@ -33,14 +30,6 @@ class AuthRepository {
     if (response.user == null) throw Exception('Signup failed');
   }
 
-  Future<void> signInWithMagicLink(String email) async {
-    await _service.signInWithMagicLink(email: email);
-  }
-
-  Future<void> signInWithPhoneOtp(String phone) async {
-    await _service.signInWithPhoneOtp(phone: phone);
-  }
-
   Future<void> verifyEmailOtp({
     required String email,
     required String token,
@@ -52,34 +41,6 @@ class AuthRepository {
       type: type,
     );
     if (response.user == null) throw Exception('Email OTP verification failed');
-  }
-
-  Future<void> verifyPhoneOtp({
-    required String phone,
-    required String token,
-    required OtpType type,
-  }) async {
-    final response = await _service.verifyPhoneOtp(
-      phone: phone,
-      token: token,
-      type: type,
-    );
-    if (response.user == null) throw Exception('Phone OTP verification failed');
-  }
-
-  Future<void> signInWithOAuth(
-    OAuthProvider provider, {
-    String? redirectTo,
-    String? scopes,
-    Map<String, String>? queryParams,
-  }) async {
-    final launched = await _service.signInWithOAuth(
-      provider,
-      redirectTo: redirectTo,
-      scopes: scopes,
-      queryParams: queryParams,
-    );
-    if (!launched) throw Exception('OAuth sign-in failed to launch');
   }
 
   Future<void> signInWithIdToken({
@@ -95,18 +56,6 @@ class AuthRepository {
       nonce: nonce,
     );
     if (response.user == null) throw Exception('ID token sign-in failed');
-  }
-
-  Future<void> signInWithSSO({
-    String? domain,
-    String? providerId,
-    String? redirectTo,
-  }) async {
-    await _service.signInWithSSO(
-      domain: domain,
-      providerId: providerId,
-      redirectTo: redirectTo,
-    );
   }
 
   Future<void> sendPasswordResetEmail(
@@ -138,10 +87,6 @@ class AuthRepository {
     await _service.resendEmailVerification(email: email);
   }
 
-  Future<void> resendPhoneVerification(String phone) async {
-    await _service.resendPhoneVerification(phone: phone);
-  }
-
   Future<void> refreshSession() async {
     final response = await _service.refreshSession();
     if (response.session == null) throw Exception('Session refresh failed');
@@ -158,5 +103,72 @@ class AuthRepository {
 
   Future<void> logout({SignOutScope scope = SignOutScope.local}) async {
     await _service.signOut(scope: scope);
+  }
+
+  Future<bool> mfaIsEnabled() async {
+    final response = await _service.mfaListFactors();
+    return response.totp.any((f) => f.status == FactorStatus.verified);
+  }
+
+  Future<List<Factor>> mfaListVerifiedFactors() async {
+    final response = await _service.mfaListFactors();
+    return response.totp
+        .where((f) => f.status == FactorStatus.verified)
+        .toList();
+  }
+
+  Future<AuthMFAEnrollResponse> mfaEnroll({String issuer = 'App'}) async {
+    return await _service.mfaEnroll(issuer: issuer);
+  }
+
+  Future<void> mfaVerifyEnrollment({
+    required String factorId,
+    required String code,
+  }) async {
+    final challenge = await _service.mfaChallenge(factorId: factorId);
+    await _service.mfaVerify(
+      factorId: factorId,
+      challengeId: challenge.id,
+      code: code,
+    );
+  }
+
+  Future<String> mfaCreateChallenge(String factorId) async {
+    final response = await _service.mfaChallenge(factorId: factorId);
+    return response.id;
+  }
+
+  Future<void> mfaVerifyChallenge({
+    required String factorId,
+    required String challengeId,
+    required String code,
+  }) async {
+    await _service.mfaVerify(
+      factorId: factorId,
+      challengeId: challengeId,
+      code: code,
+    );
+  }
+
+  Future<void> mfaChallengeAndVerify({
+    required String factorId,
+    required String code,
+  }) async {
+    final challenge = await _service.mfaChallenge(factorId: factorId);
+    await _service.mfaVerify(
+      factorId: factorId,
+      challengeId: challenge.id,
+      code: code,
+    );
+  }
+
+  Future<void> mfaUnenroll(String factorId) async {
+    final response = await _service.mfaUnenroll(factorId: factorId);
+    if (response.id.isEmpty) throw Exception('MFA unenroll failed');
+  }
+
+  Future<bool> mfaIsFullyAssured() async {
+    final response = await _service.mfaGetAuthenticatorAssuranceLevel();
+    return response.currentLevel == AuthenticatorAssuranceLevels.aal2;
   }
 }
