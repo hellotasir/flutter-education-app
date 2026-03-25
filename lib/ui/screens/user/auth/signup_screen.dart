@@ -31,13 +31,13 @@ class _SignupScreenState extends State<SignupScreen>
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    );
+    )..forward();
+
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
         .animate(
           CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
         );
-    _animController.forward();
   }
 
   @override
@@ -49,20 +49,21 @@ class _SignupScreenState extends State<SignupScreen>
     super.dispose();
   }
 
+  void _showSnackbar(String message) =>
+      SnackbarWidget(message: message).showSnackbar(context);
+
   Future<void> _signup() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirm = _confirmPasswordController.text.trim();
 
     if (email.isEmpty || password.isEmpty || confirm.isEmpty) {
-      SnackbarWidget(
-        message: 'Please fill in all fields',
-      ).showSnackbar(context);
+      _showSnackbar('Please fill in all fields');
       return;
     }
 
     if (password != confirm) {
-      SnackbarWidget(message: 'Passwords do not match').showSnackbar(context);
+      _showSnackbar('Passwords do not match');
       return;
     }
 
@@ -71,22 +72,44 @@ class _SignupScreenState extends State<SignupScreen>
     try {
       await _repo.signup(email, password);
       if (mounted) {
-        SnackbarWidget(
-          message: 'Check your email for verification',
-        ).showSnackbar(context);
+        _showSnackbar('Check your email for verification');
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) {
-        SnackbarWidget(message: e.toString()).showSnackbar(context);
-      }
+      if (mounted) _showSnackbar(e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required bool obscure,
+    required VoidCallback onToggle,
+    required TextInputAction textInputAction,
+    VoidCallback? onSubmitted,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted != null ? (_) => onSubmitted() : null,
+      decoration: InputDecoration(
+        hintText: '••••••••',
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+          ),
+          onPressed: onToggle,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return MaterialWidget(
       child: Scaffold(
         body: SafeArea(
@@ -100,97 +123,57 @@ class _SignupScreenState extends State<SignupScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 60),
-
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: const Icon(Icons.arrow_back, size: 26),
                     ),
-
                     const SizedBox(height: 32),
-
                     Text(
                       'Create\naccount.',
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                      style: textTheme.displaySmall?.copyWith(
                         fontWeight: FontWeight.w800,
                         height: 1.15,
                         letterSpacing: -1.2,
                       ),
                     ),
-
                     const SizedBox(height: 10),
-
                     Text(
                       'Start your learning journey today.',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: textTheme.bodyMedium,
                     ),
-
                     const SizedBox(height: 48),
-
-                    Text(
-                      'Email',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
+                    Text('Email', style: textTheme.labelMedium),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(
                         hintText: 'you@example.com',
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
-                    Text(
-                      'Password',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
+                    Text('Password', style: textTheme.labelMedium),
                     const SizedBox(height: 8),
-                    TextField(
+                    _buildPasswordField(
                       controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        hintText: '••••••••',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off_rounded
-                                : Icons.visibility_rounded,
-                          ),
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                        ),
-                      ),
+                      obscure: _obscurePassword,
+                      textInputAction: TextInputAction.next,
+                      onToggle: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
-
                     const SizedBox(height: 20),
-
-                    Text(
-                      'Confirm Password',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
+                    Text('Confirm Password', style: textTheme.labelMedium),
                     const SizedBox(height: 8),
-                    TextField(
+                    _buildPasswordField(
                       controller: _confirmPasswordController,
-                      obscureText: _obscureConfirm,
-                      decoration: InputDecoration(
-                        hintText: '••••••••',
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureConfirm
-                                ? Icons.visibility_off_rounded
-                                : Icons.visibility_rounded,
-                          ),
-                          onPressed: () => setState(
-                            () => _obscureConfirm = !_obscureConfirm,
-                          ),
-                        ),
-                      ),
+                      obscure: _obscureConfirm,
+                      textInputAction: TextInputAction.done,
+                      onToggle: () =>
+                          setState(() => _obscureConfirm = !_obscureConfirm),
+                      onSubmitted: _loading ? null : _signup,
                     ),
-
                     const SizedBox(height: 36),
-
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -207,15 +190,13 @@ class _SignupScreenState extends State<SignupScreen>
                             : const Text('Create Account'),
                       ),
                     ),
-
                     const SizedBox(height: 40),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           'Already have an account? ',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: textTheme.bodyMedium,
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(context),
@@ -223,7 +204,6 @@ class _SignupScreenState extends State<SignupScreen>
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 32),
                   ],
                 ),

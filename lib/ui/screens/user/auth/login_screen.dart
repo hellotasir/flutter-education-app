@@ -1,11 +1,9 @@
-// ignore_for_file: unrelated_type_equality_checks
-
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_education_app/logic/constants/app_details.dart';
 import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
-import 'package:flutter_education_app/ui/screens/auth_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/auth_screen.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -72,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _loading = true);
     try {
       await _repo.login(email, password);
-      AppNavigator(screen: AuthScreen()).navigate(context);
+      if (mounted) AppNavigator(screen: AuthScreen()).navigate(context);
     } catch (e) {
       if (mounted) _showSnackbar(e.toString());
     } finally {
@@ -82,8 +80,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Future<void> _nativeGoogleSignIn() async {
     final webClientId = dotenv.env['SUPABASE_GOOGLE_CLIENT_ID_WEB'];
-
-    final scopes = ['email', 'profile'];
+    const scopes = ['email', 'profile'];
     final googleSignIn = GoogleSignIn.instance;
 
     await googleSignIn.initialize(
@@ -91,20 +88,16 @@ class _LoginScreenState extends State<LoginScreen>
       clientId: webClientId,
     );
 
-    GoogleSignInAccount? googleUser = await googleSignIn
-        .attemptLightweightAuthentication();
-
-    googleUser ??= await googleSignIn.authenticate();
+    final googleUser =
+        await googleSignIn.attemptLightweightAuthentication() ??
+        await googleSignIn.authenticate();
 
     final authorization =
         await googleUser.authorizationClient.authorizationForScopes(scopes) ??
         await googleUser.authorizationClient.authorizeScopes(scopes);
 
     final idToken = googleUser.authentication.idToken;
-
-    if (idToken == null) {
-      throw AuthException('No ID Token found.');
-    }
+    if (idToken == null) throw AuthException('No ID Token found.');
 
     await _repo.signInWithIdToken(
       provider: OAuthProvider.google,
@@ -112,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen>
       accessToken: authorization.accessToken,
     );
 
-    AppNavigator(screen: AuthScreen()).navigate(context);
+    if (mounted) AppNavigator(screen: AuthScreen()).navigate(context);
   }
 
   void _navigate(Widget screen) =>
@@ -121,6 +114,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness != Brightness.dark;
+    final textTheme = Theme.of(context).textTheme;
 
     return MaterialWidget(
       child: Scaffold(
@@ -135,8 +129,6 @@ class _LoginScreenState extends State<LoginScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 44),
-
-                    // Logo
                     Center(
                       child: Image.asset(
                         isDark
@@ -149,13 +141,10 @@ class _LoginScreenState extends State<LoginScreen>
                     Center(
                       child: Text(
                         'Sign in to continue learning.',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: textTheme.bodyMedium,
                       ),
                     ),
-
                     const SizedBox(height: 36),
-
-                    // Email field
                     _FieldLabel('Email'),
                     const SizedBox(height: 6),
                     TextField(
@@ -166,10 +155,7 @@ class _LoginScreenState extends State<LoginScreen>
                         hintText: 'you@example.com',
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
-                    // Password field
                     _FieldLabel('Password'),
                     const SizedBox(height: 6),
                     TextField(
@@ -191,8 +177,6 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                     ),
-
-                    // Forgot password
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
@@ -200,10 +184,7 @@ class _LoginScreenState extends State<LoginScreen>
                         child: const Text('Forgot password?'),
                       ),
                     ),
-
                     const SizedBox(height: 8),
-
-                    // Sign In button
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -220,53 +201,38 @@ class _LoginScreenState extends State<LoginScreen>
                             : const Text('Sign In'),
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
-                    // Divider
                     Row(
                       children: [
                         const Expanded(child: Divider()),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'or',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
+                          child: Text('or', style: textTheme.bodySmall),
                         ),
                         const Expanded(child: Divider()),
                       ],
                     ),
-
                     const SizedBox(height: 16),
-
-                    // Google Sign In
                     SizedBox(
                       width: double.infinity,
                       height: 50,
                       child: SignInButton(
                         Buttons.google,
                         elevation: 0,
-
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(color: Colors.black),
+                          side: const BorderSide(color: Colors.black),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        onPressed: () {
-                          _nativeGoogleSignIn();
-                        },
+                        onPressed: _nativeGoogleSignIn,
                       ),
                     ),
-
                     const SizedBox(height: 24),
-
-                    // Sign up row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           "Don't have an account? ",
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: textTheme.bodyMedium,
                         ),
                         TextButton(
                           onPressed: () => _navigate(const SignupScreen()),
@@ -274,7 +240,6 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ],
                     ),
-
                     Center(child: Text(inc)),
                     const SizedBox(height: 24),
                   ],
@@ -288,7 +253,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-/// Tiny helper widget to avoid repeated style lookups for field labels.
 class _FieldLabel extends StatelessWidget {
   const _FieldLabel(this.text);
   final String text;

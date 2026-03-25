@@ -145,4 +145,21 @@ class AuthService {
   mfaGetAuthenticatorAssuranceLevel() async {
     return await _client.auth.mfa.getAuthenticatorAssuranceLevel();
   }
+
+  Future<void> deleteAccount() async {
+    if (_client.auth.currentSession == null)
+      throw Exception('No active session');
+
+    final response = await _client.functions.invoke('delete-user');
+
+    if (response.status != 200) {
+      throw Exception(
+        'Account deletion failed (${response.status}): ${response.data}',
+      );
+    }
+
+    try {
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {}
+  }
 }

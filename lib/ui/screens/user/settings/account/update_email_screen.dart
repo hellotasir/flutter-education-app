@@ -6,51 +6,50 @@ import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:flutter_education_app/ui/widgets/safety/mfa_widget.dart';
 
-class ResetPasswordScreen extends StatefulWidget {
-  const ResetPasswordScreen({super.key, required this.authRepository});
+class UpdateEmailScreen extends StatefulWidget {
+  const UpdateEmailScreen({super.key, required this.authRepository});
 
   final AuthRepository authRepository;
 
   static void open(BuildContext context, AuthRepository authRepository) {
     AppNavigator(
-      screen: ResetPasswordScreen(authRepository: authRepository),
+      screen: UpdateEmailScreen(authRepository: authRepository),
     ).navigate(context);
   }
 
   @override
-  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+  State<UpdateEmailScreen> createState() => _UpdateEmailScreenState();
 }
 
-class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
+class _UpdateEmailScreenState extends State<UpdateEmailScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _newPasswordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _emailController = TextEditingController();
 
   bool _isLoading = false;
-  bool _newPasswordVisible = false;
-  bool _confirmPasswordVisible = false;
-  bool _passwordChanged = false;
+  bool _emailUpdated = false;
+
+  String get _currentEmail => widget.authRepository.currentUser?.email ?? '';
 
   @override
   void dispose() {
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
-  Future<void> _changePassword() async {
+  Future<void> _updateEmail() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-
     try {
-      await widget.authRepository.updatePassword(_newPasswordController.text);
-      setState(() => _passwordChanged = true);
+      await widget.authRepository.updateUser(
+        email: _emailController.text.trim(),
+      );
+      setState(() => _emailUpdated = true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to change password: ${e.toString()}'),
+            content: Text('Failed to update email: ${e.toString()}'),
             backgroundColor: Colors.red.shade600,
           ),
         );
@@ -65,7 +64,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     return MaterialWidget(
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Reset Password'),
+          title: const Text('Update Email'),
           leading: IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.chevron_left_rounded),
@@ -76,7 +75,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           child: SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
-              child: _passwordChanged ? _buildSuccessView() : _buildFormView(),
+              child: _emailUpdated ? _buildSuccessView() : _buildFormView(),
             ),
           ),
         ),
@@ -102,53 +101,60 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               borderRadius: BorderRadius.circular(16),
             ),
             child: Icon(
-              Icons.lock_reset_rounded,
+              Icons.email_outlined,
               size: 32,
               color: colorScheme.onPrimaryContainer,
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            'Change your password',
+            'Change your email',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Choose a new password for your account.',
+            'A confirmation link will be sent to your new address.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.65),
             ),
           ),
           const SizedBox(height: 32),
-          _buildPasswordField(
-            controller: _newPasswordController,
-            label: 'New password',
-            visible: _newPasswordVisible,
-            onToggle: () =>
-                setState(() => _newPasswordVisible = !_newPasswordVisible),
-            validator: (v) {
-              if (v == null || v.isEmpty) return 'New password is required';
-              if (v.length < 8) return 'Password must be at least 8 characters';
-              return null;
-            },
+          // Current email (read-only)
+          TextFormField(
+            initialValue: _currentEmail,
+            readOnly: true,
+            decoration: InputDecoration(
+              labelText: 'Current email',
+              prefixIcon: const Icon(Icons.email_outlined),
+              border: const OutlineInputBorder(),
+              filled: true,
+              fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.4),
+            ),
           ),
           const SizedBox(height: 16),
-          _buildPasswordField(
-            controller: _confirmPasswordController,
-            label: 'Confirm new password',
-            visible: _confirmPasswordVisible,
-            onToggle: () => setState(
-              () => _confirmPasswordVisible = !_confirmPasswordVisible,
-            ),
+          // New email
+          TextFormField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.done,
-            onFieldSubmitted: (_) => _changePassword(),
+            onFieldSubmitted: (_) => _updateEmail(),
+            decoration: const InputDecoration(
+              labelText: 'New email address',
+              prefixIcon: Icon(Icons.alternate_email_rounded),
+              border: OutlineInputBorder(),
+            ),
             validator: (v) {
-              if (v == null || v.isEmpty)
-                return 'Please confirm your new password';
-              if (v != _newPasswordController.text)
-                return 'Passwords do not match';
+              if (v == null || v.trim().isEmpty) {
+                return 'New email is required';
+              }
+              if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim())) {
+                return 'Enter a valid email address';
+              }
+              if (v.trim() == _currentEmail) {
+                return 'New email must be different from your current email';
+              }
               return null;
             },
           ),
@@ -156,7 +162,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _isLoading ? null : _changePassword,
+              onPressed: _isLoading ? null : _updateEmail,
               icon: _isLoading
                   ? const SizedBox(
                       width: 18,
@@ -166,8 +172,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.lock_outline_rounded),
-              label: Text(_isLoading ? 'Updating…' : 'Update Password'),
+                  : const Icon(Icons.email_outlined),
+              label: Text(_isLoading ? 'Updating…' : 'Update Email'),
             ),
           ),
         ],
@@ -191,14 +197,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             shape: BoxShape.circle,
           ),
           child: Icon(
-            Icons.lock_open_rounded,
+            Icons.mark_email_read_outlined,
             size: 40,
             color: Colors.green.shade600,
           ),
         ),
         const SizedBox(height: 24),
         Text(
-          'Password updated',
+          'Confirmation sent',
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -206,9 +212,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         ),
         const SizedBox(height: 12),
         Text(
-          'Your password has been changed successfully.',
+          'Check your new inbox and click the confirmation link to complete the change.',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurface.withOpacity(0.65),
+            color: colorScheme.onSurface.withValues(alpha: 0.65),
           ),
           textAlign: TextAlign.center,
         ),
@@ -221,35 +227,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildPasswordField({
-    required TextEditingController controller,
-    required String label,
-    required bool visible,
-    required VoidCallback onToggle,
-    required String? Function(String?) validator,
-    TextInputAction textInputAction = TextInputAction.next,
-    void Function(String)? onFieldSubmitted,
-  }) {
-    return TextFormField(
-      controller: controller,
-      obscureText: !visible,
-      textInputAction: textInputAction,
-      onFieldSubmitted: onFieldSubmitted,
-      validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: const Icon(Icons.lock_outline_rounded),
-        border: const OutlineInputBorder(),
-        suffixIcon: IconButton(
-          icon: Icon(
-            visible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-          ),
-          onPressed: onToggle,
-        ),
-      ),
     );
   }
 }

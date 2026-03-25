@@ -1,16 +1,19 @@
+// lib/ui/screens/user/settings/settings_screen.dart
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/ui/screens/user/auth/login_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/settings/feedback_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/settings/profile_settings_screen.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:flutter_education_app/ui/widgets/settings/settings_widget.dart';
 import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 import 'package:flutter_education_app/ui/widgets/settings/sheets/appearance_sheet.dart';
-import 'package:flutter_education_app/ui/widgets/settings/sheets/feedback_sheet.dart';
 import 'package:flutter_education_app/ui/widgets/settings/sheets/about_app_sheet.dart';
 import 'package:flutter_education_app/ui/widgets/settings/sheets/user/account_sheet.dart';
+import 'package:flutter_education_app/ui/widgets/settings/sheets/user/notification_sheet.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -34,6 +37,14 @@ class SettingsScreen extends StatelessWidget {
         ),
         body: ListView(
           children: [
+            const SectionHeader(label: 'Profile'),
+            SettingsTile(
+              icon: Icons.person,
+              label: 'Profile Settings',
+              onTap: () => AppNavigator(
+                screen: ProfileSettingsScreen(),
+              ).navigate(context),
+            ),
             const SectionHeader(label: 'Account'),
             SettingsTile(
               icon: Icons.manage_accounts_outlined,
@@ -43,7 +54,7 @@ class SettingsScreen extends StatelessWidget {
             SettingsTile(
               icon: Icons.notifications_outlined,
               label: 'Notifications',
-              onTap: () => _NotificationsSheet.show(context),
+              onTap: () => NotificationsSheet.show(context),
             ),
             const SectionHeader(label: 'Preferences'),
             SettingsTile(
@@ -55,7 +66,7 @@ class SettingsScreen extends StatelessWidget {
             SettingsTile(
               icon: Icons.feedback_outlined,
               label: 'Send Feedback',
-              onTap: () => FeedbackSheet.show(context, authRepository),
+              onTap: () => FeedbackScreen.open(context, authRepository),
             ),
             SettingsTile(
               icon: Icons.info_outlined,
@@ -165,95 +176,6 @@ class SheetScaffold extends StatelessWidget {
           ),
           const Divider(height: 1),
           child,
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationsSheet extends StatefulWidget {
-  const _NotificationsSheet();
-
-  static void show(BuildContext context) =>
-      openFullSheet(context, const _NotificationsSheet());
-
-  @override
-  State<_NotificationsSheet> createState() => _NotificationsSheetState();
-}
-
-class _NotificationsSheetState extends State<_NotificationsSheet> {
-  bool _pushEnabled = true;
-  bool _emailEnabled = false;
-  bool _courseReminders = true;
-  bool _newContent = true;
-  bool _weeklyDigest = false;
-  bool _achievements = true;
-
-  @override
-  Widget build(BuildContext context) {
-    return SheetScaffold(
-      title: 'Notifications',
-      child: Column(
-        children: [
-          SwitchTile(
-            icon: Icons.phonelink_ring_outlined,
-            label: 'Push Notifications',
-            subtitle: 'Receive alerts on this device',
-            value: _pushEnabled,
-            onChanged: (v) => setState(() => _pushEnabled = v),
-          ),
-          SwitchTile(
-            icon: Icons.email_outlined,
-            label: 'Email Notifications',
-            subtitle: 'Receive updates via email',
-            value: _emailEnabled,
-            onChanged: (v) => setState(() => _emailEnabled = v),
-          ),
-          const SubSectionHeader(label: 'What to Notify'),
-          SwitchTile(
-            icon: Icons.alarm_outlined,
-            label: 'Course Reminders',
-            subtitle: 'Daily reminders to continue learning',
-            value: _courseReminders,
-            onChanged: (v) => setState(() => _courseReminders = v),
-          ),
-          SwitchTile(
-            icon: Icons.new_releases_outlined,
-            label: 'New Content',
-            subtitle: 'When new courses or lessons are added',
-            value: _newContent,
-            onChanged: (v) => setState(() => _newContent = v),
-          ),
-          SwitchTile(
-            icon: Icons.newspaper_outlined,
-            label: 'Weekly Digest',
-            subtitle: 'A weekly summary of your progress',
-            value: _weeklyDigest,
-            onChanged: (v) => setState(() => _weeklyDigest = v),
-          ),
-          SwitchTile(
-            icon: Icons.emoji_events_outlined,
-            label: 'Achievements',
-            subtitle: 'When you earn badges or milestones',
-            value: _achievements,
-            onChanged: (v) => setState(() => _achievements = v),
-          ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Notification preferences saved'),
-                  ),
-                );
-              },
-              child: const Text('Save Preferences'),
-            ),
-          ),
-          const SizedBox(height: 16),
         ],
       ),
     );

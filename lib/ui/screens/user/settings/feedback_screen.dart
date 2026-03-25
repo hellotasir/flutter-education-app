@@ -1,8 +1,12 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/logic/models/feedback_model.dart';
 import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/repositories/feedback_repository.dart';
+import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/logic/services/firebase_firestore_service.dart';
+import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 
 enum _SortOrder { newest, oldest, highestRating, lowestRating }
 
@@ -38,37 +42,22 @@ class _FilterState {
   );
 }
 
-class FeedbackSheet extends StatefulWidget {
-  const FeedbackSheet({super.key, required this.repo, this.scrollController});
+class FeedbackScreen extends StatefulWidget {
+  const FeedbackScreen({super.key, required this.authRepository});
 
-  final AuthRepository repo;
-  final ScrollController? scrollController;
+  final AuthRepository authRepository;
 
-  static void show(BuildContext context, AuthRepository repo) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.92,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (ctx, scrollController) =>
-            FeedbackSheet(repo: repo, scrollController: scrollController),
-      ),
-    );
+  static void open(BuildContext context, AuthRepository authRepository) {
+    AppNavigator(
+      screen: FeedbackScreen(authRepository: authRepository),
+    ).navigate(context);
   }
 
   @override
-  State<FeedbackSheet> createState() => _FeedbackSheetState();
+  State<FeedbackScreen> createState() => _FeedbackScreenState();
 }
 
-class _FeedbackSheetState extends State<FeedbackSheet> {
+class _FeedbackScreenState extends State<FeedbackScreen> {
   final _firestoreService = FirestoreService<FeedbackModel>(
     FeedbackRepository(),
   );
@@ -116,6 +105,7 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
       for (final f in all) {
         if (!seen.containsKey(f.userId)) seen[f.userId] = f;
       }
+
       final deduped = seen.values.toList();
 
       final userId = _firestoreService.currentUserId;
@@ -139,11 +129,9 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
     if (_filter.category != 'all') {
       list = list.where((f) => f.category == _filter.category).toList();
     }
-
     if (_filter.minRating > 0) {
       list = list.where((f) => f.rating >= _filter.minRating).toList();
     }
-
     if (_filter.query.isNotEmpty) {
       final q = _filter.query.toLowerCase();
       list = list
@@ -161,15 +149,32 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
       case _SortOrder.oldest:
         list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       case _SortOrder.highestRating:
-        list.sort((a, b) => b.rating.compareTo(a.rating));
+        list.sort((a, b) {
+          final r = b.rating.compareTo(a.rating);
+          return r != 0 ? r : b.createdAt.compareTo(a.createdAt);
+        });
       case _SortOrder.lowestRating:
-        list.sort((a, b) => a.rating.compareTo(b.rating));
+        list.sort((a, b) {
+          final r = a.rating.compareTo(b.rating);
+          return r != 0 ? r : b.createdAt.compareTo(a.createdAt);
+        });
     }
 
     return list;
   }
 
   void _openForm({FeedbackModel? existing}) {
+    if (existing == null && _myFeedback != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You have already submitted feedback. Use Edit to update it.',
+          ),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -261,7 +266,6 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
         builder: (ctx, scrollController) => _FilterSheet(
           initial: _filter,
           categories: _categories,
-
           onApply: (updated) => setState(() => _filter = updated),
         ),
       ),
@@ -275,277 +279,284 @@ class _FeedbackSheetState extends State<FeedbackSheet> {
     });
   }
 
-  double _averageRating() {
-    if (_allFeedback.isEmpty) return 0;
-    return _allFeedback.map((f) => f.rating).reduce((a, b) => a + b) /
-        _allFeedback.length;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final currentUserId = _firestoreService.currentUserId;
     final filtered = _filtered;
+    final currentUserId = _firestoreService.currentUserId;
 
-    final body = _fetching
-        ? null
-        : _FeedbackListBody(
-            allFeedback: _allFeedback,
-            filtered: filtered,
-            filter: _filter,
-            searchCtrl: _searchCtrl,
-            categories: _categories,
-            averageRating: _averageRating(),
-            onShowSortFilter: _showSortFilter,
-            onResetFilters: _resetFilters,
-            onCategoryChanged: (cat) =>
-                setState(() => _filter = _filter.copyWith(category: cat)),
-            currentUserId: currentUserId,
-            onEdit: (f) => _openForm(existing: f),
-            onDelete: _deleteSingle,
-          );
+    // The "Add" button is only shown when:
+    //   • we have finished loading (_fetching == false), AND
+    //   • the current user has not yet submitted feedback (_myFeedback == null)
+    // This prevents the button from flickering in then out while loading.
+    final canAdd = !_fetching && _myFeedback == null;
 
-    return _FeedbackSheetScaffold(
-      title: 'Feedback',
-      onDeleteAll: _allFeedback.isNotEmpty ? _deleteAll : null,
-      trailing: _myFeedback == null
-          ? FilledButton.icon(
-              onPressed: () => _openForm(),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Add Feedback'),
-              style: FilledButton.styleFrom(
-                visualDensity: VisualDensity.compact,
+    return MaterialWidget(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Feedback'),
+          leading: IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.chevron_left_rounded),
+          ),
+          actions: [
+            if (canAdd)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilledButton.icon(
+                  onPressed: () => _openForm(),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add'),
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
               ),
-            )
-          : null,
-      scrollController: widget.scrollController,
-      loadingChild: _fetching
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 48),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          : null,
-      listBody: body,
+            if (_allFeedback.isNotEmpty)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'delete_all',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete_forever_outlined, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text(
+                          'Delete All Feedback',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (v) {
+                  if (v == 'delete_all') _deleteAll();
+                },
+              ),
+          ],
+        ),
+        body: _fetching
+            ? const Center(child: CircularProgressIndicator())
+            : _allFeedback.isEmpty
+            ? _EmptyState(onAdd: () => _openForm())
+            : CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              decoration: InputDecoration(
+                                hintText: 'Search by name or message…',
+                                prefixIcon: const Icon(
+                                  Icons.search_rounded,
+                                  size: 20,
+                                ),
+                                suffixIcon: _searchCtrl.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(
+                                          Icons.close_rounded,
+                                          size: 18,
+                                        ),
+                                        onPressed: _searchCtrl.clear,
+                                      )
+                                    : null,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline.withOpacity(0.3),
+                                  ),
+                                ),
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Badge(
+                            isLabelVisible: _filter.isActive,
+                            child: IconButton.outlined(
+                              onPressed: _showSortFilter,
+                              icon: const Icon(Icons.tune_rounded, size: 20),
+                              tooltip: 'Filter & Sort',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 8),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: _categories.map((c) {
+                            final selected = _filter.category == c.$1;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                label: Text(c.$2),
+                                selected: selected,
+                                onSelected: (_) => setState(
+                                  () => _filter = _filter.copyWith(
+                                    category: c.$1,
+                                  ),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_filter.isActive)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                        child: Row(
+                          children: [
+                            Text(
+                              '${filtered.length} result${filtered.length == 1 ? '' : 's'}',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.5),
+                                  ),
+                            ),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed: _resetFilters,
+                              icon: const Icon(
+                                Icons.restart_alt_rounded,
+                                size: 16,
+                              ),
+                              label: const Text('Reset'),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SliverToBoxAdapter(child: Divider(height: 1)),
+                  if (filtered.isEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 40,
+                          horizontal: 24,
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.search_off_rounded,
+                              size: 40,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.3),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No results found',
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.5),
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            TextButton(
+                              onPressed: _resetFilters,
+                              child: const Text('Clear filters'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    SliverList.builder(
+                      itemCount: filtered.length,
+                      itemBuilder: (ctx, i) {
+                        final feedback = filtered[i];
+                        final isOwner = feedback.userId == currentUserId;
+                        return _FeedbackTile(
+                          feedback: feedback,
+                          isOwner: isOwner,
+                          onEdit: isOwner
+                              ? () => _openForm(existing: feedback)
+                              : null,
+                          onDelete: isOwner
+                              ? () => _deleteSingle(feedback)
+                              : null,
+                        );
+                      },
+                    ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                ],
+              ),
+      ),
     );
   }
 }
 
-class _FeedbackListBody {
-  const _FeedbackListBody({
-    required this.allFeedback,
-    required this.filtered,
-    required this.filter,
-    required this.searchCtrl,
-    required this.categories,
-    required this.averageRating,
-    required this.onShowSortFilter,
-    required this.onResetFilters,
-    required this.onCategoryChanged,
-    required this.currentUserId,
-    required this.onEdit,
-    required this.onDelete,
-  });
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.onAdd});
 
-  final List<FeedbackModel> allFeedback;
-  final List<FeedbackModel> filtered;
-  final _FilterState filter;
-  final TextEditingController searchCtrl;
-  final List<(String, String)> categories;
-  final double averageRating;
-  final VoidCallback onShowSortFilter;
-  final VoidCallback onResetFilters;
-  final ValueChanged<String> onCategoryChanged;
-  final String? currentUserId;
-  final ValueChanged<FeedbackModel> onEdit;
-  final ValueChanged<FeedbackModel> onDelete;
+  final VoidCallback onAdd;
 
-  List<Widget> buildSlivers(BuildContext context) {
-    if (allFeedback.isEmpty) {
-      return [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.feedback_outlined,
-                  size: 48,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.3),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No feedback yet',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Be the first to share your thoughts.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.4),
-                  ),
-                ),
-              ],
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.feedback_outlined,
+              size: 56,
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.25),
             ),
-          ),
-        ),
-      ];
-    }
-
-    return [
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: searchCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'Search by name or message…',
-                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                    suffixIcon: searchCtrl.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 18),
-                            onPressed: searchCtrl.clear,
-                          )
-                        : null,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.outline.withOpacity(0.3),
-                      ),
-                    ),
-                    isDense: true,
-                  ),
-                ),
+            const SizedBox(height: 16),
+            Text(
+              'No feedback yet',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
               ),
-              const SizedBox(width: 8),
-              Badge(
-                isLabelVisible: filter.isActive,
-                child: IconButton.outlined(
-                  onPressed: onShowSortFilter,
-                  icon: const Icon(Icons.tune_rounded, size: 20),
-                  tooltip: 'Filter & Sort',
-                ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Be the first to share your thoughts.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add Feedback'),
+            ),
+          ],
         ),
       ),
-
-      SliverToBoxAdapter(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 8),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: categories.map((c) {
-                final selected = filter.category == c.$1;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(c.$2),
-                    selected: selected,
-                    onSelected: (_) => onCategoryChanged(c.$1),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ),
-      if (filter.isActive)
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-            child: Row(
-              children: [
-                Text(
-                  '${filtered.length} result${filtered.length == 1 ? '' : 's'}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: onResetFilters,
-                  icon: const Icon(Icons.restart_alt_rounded, size: 16),
-                  label: const Text('Reset'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      const SliverToBoxAdapter(child: Divider(height: 1)),
-
-      if (filtered.isEmpty)
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.search_off_rounded,
-                  size: 40,
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.3),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'No results found',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withOpacity(0.5),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                TextButton(
-                  onPressed: onResetFilters,
-                  child: const Text('Clear filters'),
-                ),
-              ],
-            ),
-          ),
-        )
-      else
-        SliverList.builder(
-          itemCount: filtered.length,
-          itemBuilder: (ctx, i) {
-            final feedback = filtered[i];
-            final isOwner = feedback.userId == currentUserId;
-            return _FeedbackTile(
-              feedback: feedback,
-              isOwner: isOwner,
-              onEdit: isOwner ? () => onEdit(feedback) : null,
-              onDelete: isOwner ? () => onDelete(feedback) : null,
-            );
-          },
-        ),
-      const SliverToBoxAdapter(child: SizedBox(height: 16)),
-    ];
+    );
   }
 }
 
@@ -956,6 +967,8 @@ class _FeedbackFormState extends State<_FeedbackForm> {
   late String _category;
   late int _rating;
   bool _loading = false;
+
+  bool _checking = false;
   bool _alreadySubmitted = false;
 
   static const _categories = [
@@ -978,6 +991,8 @@ class _FeedbackFormState extends State<_FeedbackForm> {
   Future<void> _checkDuplicate() async {
     final userId = widget.service.currentUserId;
     if (userId == null) return;
+
+    setState(() => _checking = true);
     try {
       final results = await widget.service.getAll(
         query: (col) => col.where('userId', isEqualTo: userId).limit(1),
@@ -985,7 +1000,10 @@ class _FeedbackFormState extends State<_FeedbackForm> {
       if (mounted && results.isNotEmpty) {
         setState(() => _alreadySubmitted = true);
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _checking = false);
+    }
   }
 
   @override
@@ -995,6 +1013,8 @@ class _FeedbackFormState extends State<_FeedbackForm> {
   }
 
   Future<void> _submit() async {
+    if (_alreadySubmitted) return;
+
     final text = _feedbackCtrl.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1021,12 +1041,28 @@ class _FeedbackFormState extends State<_FeedbackForm> {
         category: _category,
         rating: _rating,
         message: text,
-        createdAt: DateTime.now(),
+
+        createdAt: widget.existing?.createdAt ?? DateTime.now(),
       );
 
       if (widget.existing?.id != null) {
         await widget.service.replace(widget.existing!.id!, model);
       } else {
+        final userId = user?.id;
+        if (userId != null) {
+          final existing = await widget.service.getAll(
+            query: (col) => col.where('userId', isEqualTo: userId).limit(1),
+          );
+          if (existing.isNotEmpty) {
+            if (mounted) {
+              setState(() {
+                _alreadySubmitted = true;
+                _loading = false;
+              });
+            }
+            return;
+          }
+        }
         await widget.service.add(model);
       }
 
@@ -1051,10 +1087,15 @@ class _FeedbackFormState extends State<_FeedbackForm> {
   Widget build(BuildContext context) {
     final isEditing = widget.existing != null;
 
-    return _FeedbackSheetScaffold(
+    return _FormSheetScaffold(
       title: isEditing ? 'Edit Feedback' : 'New Feedback',
       scrollController: widget.scrollController,
-      child: _alreadySubmitted
+      child: _checking
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 48),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : _alreadySubmitted
           ? Padding(
               padding: const EdgeInsets.all(32),
               child: Column(
@@ -1178,30 +1219,20 @@ class _FeedbackFormState extends State<_FeedbackForm> {
   }
 }
 
-class _FeedbackSheetScaffold extends StatelessWidget {
-  const _FeedbackSheetScaffold({
+class _FormSheetScaffold extends StatelessWidget {
+  const _FormSheetScaffold({
     required this.title,
-    this.trailing,
-    this.onDeleteAll,
+    required this.child,
     this.scrollController,
-    this.listBody,
-    this.loadingChild,
-    this.child,
-  }) : assert(
-         listBody != null || child != null || loadingChild != null,
-         'Provide either listBody (list sheet) or child (form sheet)',
-       );
+  });
 
   final String title;
-  final Widget? trailing;
-  final VoidCallback? onDeleteAll;
+  final Widget child;
   final ScrollController? scrollController;
-  final _FeedbackListBody? listBody;
-  final Widget? loadingChild;
-  final Widget? child;
 
-  Widget _buildHeader(BuildContext context) {
-    return Column(
+  @override
+  Widget build(BuildContext context) {
+    final header = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1229,32 +1260,6 @@ class _FeedbackSheetScaffold extends StatelessWidget {
                 ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const Spacer(),
-              if (trailing != null) ...[trailing!, const SizedBox(width: 4)],
-              if (onDeleteAll != null)
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert_rounded),
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'delete_all',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_forever_outlined,
-                            color: Colors.red,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Delete All Feedback',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onSelected: (v) {
-                    if (v == 'delete_all') onDeleteAll?.call();
-                  },
-                ),
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close_rounded),
@@ -1266,31 +1271,7 @@ class _FeedbackSheetScaffold extends StatelessWidget {
         const Divider(height: 1),
       ],
     );
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    final header = _buildHeader(context);
-
-    if (scrollController != null && listBody != null) {
-      return MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: CustomScrollView(
-          controller: scrollController,
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: header),
-            if (loadingChild != null)
-              SliverToBoxAdapter(child: loadingChild!)
-            else
-              ...listBody!.buildSlivers(context),
-          ],
-        ),
-      );
-    }
-
-    final body = loadingChild ?? child ?? const SizedBox.shrink();
     if (scrollController != null) {
       return MediaQuery.removePadding(
         context: context,
@@ -1300,7 +1281,7 @@ class _FeedbackSheetScaffold extends StatelessWidget {
           physics: const ClampingScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(child: header),
-            SliverToBoxAdapter(child: body),
+            SliverToBoxAdapter(child: child),
           ],
         ),
       );
@@ -1309,7 +1290,7 @@ class _FeedbackSheetScaffold extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
-      children: [header, body],
+      children: [header, child],
     );
   }
 }

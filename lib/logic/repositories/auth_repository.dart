@@ -105,6 +105,13 @@ class AuthRepository {
     await _service.signOut(scope: scope);
   }
 
+  Future<void> deleteAccount(String password) async {
+    final email = currentUser?.email;
+    if (email == null) throw Exception('No authenticated user found');
+    await login(email, password);
+    await _service.deleteAccount();
+  }
+
   Future<bool> mfaIsEnabled() async {
     final response = await _service.mfaListFactors();
     return response.totp.any((f) => f.status == FactorStatus.verified);

@@ -1,28 +1,29 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/ui/screens/user/auth/login_screen.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
+import 'package:flutter_education_app/ui/widgets/safety/mfa_widget.dart';
+
+enum _DeleteStep { confirm, deleted }
 
 class DeleteAccountScreen extends StatefulWidget {
   const DeleteAccountScreen({super.key, required this.authRepository});
 
   final AuthRepository authRepository;
 
-  static void open(BuildContext context, AuthRepository authRepository) {
-    AppNavigator(
-      screen: DeleteAccountScreen(authRepository: authRepository),
-    ).navigate(context);
-  }
+  static void open(BuildContext context, AuthRepository authRepository) =>
+      AppNavigator(
+        screen: DeleteAccountScreen(authRepository: authRepository),
+      ).navigate(context);
 
   @override
   State<DeleteAccountScreen> createState() => _DeleteAccountScreenState();
 }
 
-class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
+class _DeleteAccountScreenState extends State<DeleteAccountScreen>
+    with SingleTickerProviderStateMixin {
   _DeleteStep _step = _DeleteStep.confirm;
   bool _isLoading = false;
   bool _passwordVisible = false;
@@ -31,11 +32,63 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  late final AnimationController _animController;
+  late final Animation<double> _fadeAnim;
+  late final Animation<Offset> _slideAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..forward();
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.06), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+        );
+  }
+
   @override
   void dispose() {
+    _animController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    SnackbarWidget(message: message).showSnackbar(context);
+  }
+
+  Future<bool?> _showFinalConfirmDialog() => showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => AlertDialog(
+      icon: Icon(
+        Icons.warning_amber_rounded,
+        color: Colors.red.shade600,
+        size: 40,
+      ),
+      title: const Text('Final confirmation'),
+      content: const Text(
+        'This will permanently delete your account and all associated data. '
+        'This cannot be undone.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete my account'),
+        ),
+      ],
+    ),
+  );
 
   Future<void> _submitDeletionRequest() async {
     if (!_formKey.currentState!.validate()) return;
@@ -47,57 +100,30 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
     }
 
     final confirmed = await _showFinalConfirmDialog();
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final email = widget.authRepository.currentUser?.email ?? '';
-      await widget.authRepository.login(email, _passwordController.text);
-      await widget.authRepository.logout(scope: SignOutScope.global);
-      setState(() => _step = _DeleteStep.requested);
+      await widget.authRepository.deleteAccount(
+        _passwordController.text.trim(),
+      );
+      await widget.authRepository.logout();
+
+      if (mounted) {
+        AppNavigator(screen: LoginScreen()).navigate(context);
+        setState(() => _step = _DeleteStep.deleted);
+      }
     } on Exception catch (e) {
-      _showError('Could not verify your password. Please try again.\n$e');
+      if (mounted) {
+        SnackbarWidget(
+          message: 'Could not delete your account. Please try again.',
+        ).showSnackbar(context);
+      }
+      _showError('Could not delete your account. Please try again.\n$e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Future<bool?> _showFinalConfirmDialog() {
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(
-          Icons.warning_amber_rounded,
-          color: Colors.red.shade600,
-          size: 40,
-        ),
-        title: const Text('Final confirmation'),
-        content: const Text(
-          'This will permanently delete your account and all associated data. '
-          'This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete my account'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showError(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red.shade600),
-    );
   }
 
   @override
@@ -111,13 +137,22 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             icon: const Icon(Icons.chevron_left_rounded),
           ),
         ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: switch (_step) {
-              _DeleteStep.confirm => _buildConfirmView(),
-              _DeleteStep.requested => _buildRequestedView(),
-            },
+        body: MfaWidget(
+          authRepository: widget.authRepository,
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: switch (_step) {
+                    _DeleteStep.confirm => _buildConfirmView(),
+                    _DeleteStep.deleted => _buildDeletedView(),
+                  },
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -127,6 +162,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   Widget _buildConfirmView() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
 
     return Form(
       key: _formKey,
@@ -134,77 +170,16 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.red.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.red.shade200),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.red.shade600),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'This action is permanent',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: Colors.red.shade700,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Deleting your account will permanently remove all your data, progress, and subscriptions.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.red.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 28),
-          Text(
-            'What will be deleted',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ..._deletionItems.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.remove_circle_outline_rounded,
-                    size: 18,
-                    color: Colors.red.shade400,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(item, style: theme.textTheme.bodyMedium),
-                ],
-              ),
-            ),
-          ),
+          _WarningBanner(theme: theme),
           const SizedBox(height: 28),
           Text(
             'Confirm your password',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Enter your current password to verify your identity before deleting your account.',
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.6),
             ),
           ),
@@ -213,6 +188,8 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             controller: _passwordController,
             obscureText: !_passwordVisible,
             textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) =>
+                _isLoading ? null : _submitDeletionRequest(),
             decoration: InputDecoration(
               labelText: 'Current password',
               prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -227,14 +204,14 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                     setState(() => _passwordVisible = !_passwordVisible),
               ),
             ),
-            validator: (value) {
-              if (value == null || value.isEmpty) return 'Password is required';
-              if (value.length < 6)
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Password is required';
+              if (v.trim().length < 6)
                 return 'Password must be at least 6 characters';
               return null;
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           InkWell(
             onTap: () =>
                 setState(() => _checkedUnderstood = !_checkedUnderstood),
@@ -250,13 +227,13 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                     onChanged: (v) =>
                         setState(() => _checkedUnderstood = v ?? false),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 12),
                       child: Text(
                         'I understand that deleting my account is permanent and cannot be undone.',
-                        style: theme.textTheme.bodyMedium,
+                        style: textTheme.bodyMedium,
                       ),
                     ),
                   ),
@@ -267,6 +244,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
           const SizedBox(height: 32),
           SizedBox(
             width: double.infinity,
+            height: 50,
             child: FilledButton.icon(
               onPressed: _isLoading ? null : _submitDeletionRequest,
               style: FilledButton.styleFrom(
@@ -282,67 +260,67 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
                       ),
                     )
                   : const Icon(Icons.delete_forever_rounded),
-              label: Text(_isLoading ? 'Processing…' : 'Delete My Account'),
+              label: Text(_isLoading ? 'Deleting…' : 'Delete My Account'),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
+            height: 50,
             child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: _isLoading ? null : () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
           ),
+          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  Widget _buildRequestedView() {
+  Widget _buildDeletedView() {
     final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 48),
+        const SizedBox(height: 56),
         Container(
-          width: 80,
-          height: 80,
+          width: 88,
+          height: 88,
           decoration: BoxDecoration(
-            color: Colors.orange.shade50,
+            color: Colors.red.shade50,
             shape: BoxShape.circle,
           ),
           child: Icon(
-            Icons.hourglass_top_rounded,
-            size: 40,
-            color: Colors.orange.shade600,
+            Icons.delete_forever_rounded,
+            size: 44,
+            color: Colors.red.shade600,
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 28),
         Text(
-          'Deletion Requested',
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          'Account Deleted',
+          style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 12),
         Text(
-          'Your account deletion request has been submitted. '
-          'Your data will be permanently removed within 30 days. '
+          'Your account and all associated data have been permanently deleted. '
           'You have been signed out of all devices.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.65),
+          style: textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.65),
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: 52),
         SizedBox(
           width: double.infinity,
+          height: 50,
           child: FilledButton(
-            onPressed: () {
-              AppNavigator(screen: LoginScreen()).navigate(context);
-            },
+            onPressed: () =>
+                AppNavigator(screen: LoginScreen()).navigate(context),
             child: const Text('Go to Login'),
           ),
         ),
@@ -351,12 +329,46 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   }
 }
 
-enum _DeleteStep { confirm, requested }
+class _WarningBanner extends StatelessWidget {
+  const _WarningBanner({required this.theme});
+  final ThemeData theme;
 
-const _deletionItems = [
-  'Your profile and personal information',
-  'All course progress and history',
-  'Earned certificates and achievements',
-  'Saved bookmarks and notes',
-  'Subscription and billing records',
-];
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.red.shade50,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: Colors.red.shade200),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.warning_amber_rounded, color: Colors.red.shade600),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'This action is permanent',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: Colors.red.shade700,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Deleting your account will permanently remove all your data, '
+                'progress, and subscriptions.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.red.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}

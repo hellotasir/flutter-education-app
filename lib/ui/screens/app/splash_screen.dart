@@ -1,7 +1,7 @@
 // ignore_for_file: unrelated_type_equality_checks
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/ui/screens/auth_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/auth_screen.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 
 class SplashScreen extends StatefulWidget {

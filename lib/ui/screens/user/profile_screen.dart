@@ -1,6 +1,8 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/ui/screens/user/settings/settings_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/settings_screen.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,11 +22,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _supabase = Supabase.instance.client;
 
   User? _user;
-  Session? _session;
   bool _isLoading = true;
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _fullNameController;
-  late TextEditingController _emailController;
   File? _pickedImage;
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
@@ -38,7 +38,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     _fullNameController.dispose();
-    _emailController.dispose();
     super.dispose();
   }
 
@@ -49,10 +48,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _fullNameController = TextEditingController(
         text: user?.userMetadata?['full_name'] as String? ?? '',
       );
-      _emailController = TextEditingController(text: user?.email ?? '');
       setState(() {
         _user = user;
-        _session = _authRepository.currentSession;
         _isLoading = false;
       });
     } catch (e) {
@@ -72,18 +69,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'User';
 
   String? get _avatarUrl => _user?.userMetadata?['avatar_url'] as String?;
-
-  String _formatDate(String isoDate) {
-    try {
-      final dt = DateTime.parse(isoDate).toLocal();
-      return '${dt.year}-${_pad(dt.month)}-${_pad(dt.day)}  '
-          '${_pad(dt.hour)}:${_pad(dt.minute)}';
-    } catch (_) {
-      return isoDate;
-    }
-  }
-
-  String _pad(int n) => n.toString().padLeft(2, '0');
 
   Future<void> _pickPhoto() async {
     final choice = await showModalBottomSheet<ImageSource>(
@@ -156,9 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isSaving = true);
     try {
       final user = _authRepository.currentUser;
-      final newEmail = _emailController.text.trim();
       final fullName = _fullNameController.text.trim();
-      final emailChanged = newEmail != (user?.email ?? '');
       final nameChanged =
           fullName != (user?.userMetadata?['full_name'] as String? ?? '');
       final photoChanged = _pickedImage != null;
@@ -170,11 +153,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (nameChanged) updatedData['full_name'] = fullName;
       if (newAvatarUrl != null) updatedData['avatar_url'] = newAvatarUrl;
 
-      if (emailChanged || updatedData.isNotEmpty) {
-        await _authRepository.updateUser(
-          email: emailChanged ? newEmail : null,
-          data: updatedData.isNotEmpty ? updatedData : null,
-        );
+      if (updatedData.isNotEmpty) {
+        await _authRepository.updateUser(data: updatedData);
       }
 
       await _loadUserData();
@@ -212,124 +192,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showDetailsSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.95,
-        maxChildSize: 0.95,
-        minChildSize: 0.6,
-        builder: (_, controller) => Column(
-          children: [
-            _sheetHandle(ctx),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    color: Theme.of(ctx).colorScheme.primary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Account Details',
-                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                controller: controller,
-                children: [
-                  _sectionLabel(ctx, 'Account'),
-                  _detailTile(
-                    ctx,
-                    Icons.email_outlined,
-                    'Email',
-                    _user!.email ?? 'N/A',
-                  ),
-                  _divider(ctx),
-                  _statusTile(
-                    ctx,
-                    Icons.mark_email_read_outlined,
-                    'Email Confirmed',
-                    _user!.emailConfirmedAt != null,
-                    _user!.emailConfirmedAt != null
-                        ? _formatDate(_user!.emailConfirmedAt!)
-                        : 'Not confirmed',
-                  ),
-
-                  _sectionLabel(ctx, 'Activity'),
-                  _detailTile(
-                    ctx,
-                    Icons.calendar_today_outlined,
-                    'Created At',
-                    _user!.createdAt.isNotEmpty
-                        ? _formatDate(_user!.createdAt)
-                        : 'N/A',
-                  ),
-                  _divider(ctx),
-                  _detailTile(
-                    ctx,
-                    Icons.login_outlined,
-                    'Last Sign In',
-                    _user!.lastSignInAt != null
-                        ? _formatDate(_user!.lastSignInAt!)
-                        : 'N/A',
-                  ),
-                  _divider(ctx),
-                  _detailTile(
-                    ctx,
-                    Icons.update_outlined,
-                    'Updated At',
-                    _user!.updatedAt != null
-                        ? _formatDate(_user!.updatedAt!)
-                        : 'N/A',
-                  ),
-
-                  if (_session != null) ...[
-                    _sectionLabel(ctx, 'Session'),
-                    _statusTile(
-                      ctx,
-                      Icons.power_outlined,
-                      'Session Active',
-                      _authRepository.isAuthenticated,
-                      _authRepository.isAuthenticated ? 'Active' : 'Inactive',
-                    ),
-                    _divider(ctx),
-                    _detailTile(
-                      ctx,
-                      Icons.timer_outlined,
-                      'Session Expires At',
-                      _session!.expiresAt != null
-                          ? _formatDate(
-                              DateTime.fromMillisecondsSinceEpoch(
-                                _session!.expiresAt! * 1000,
-                              ).toIso8601String(),
-                            )
-                          : 'N/A',
-                    ),
-                  ],
-
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _showEditSheet() {
     _pickedImage = null;
     showModalBottomSheet(
@@ -357,7 +219,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: DraggableScrollableSheet(
               expand: false,
-              initialChildSize: 0.75,
+              initialChildSize: 0.65,
               maxChildSize: 0.95,
               minChildSize: 0.5,
               builder: (_, controller) => Column(
@@ -491,25 +353,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? 'Name cannot be empty'
                                 : null,
                           ),
-                          const SizedBox(height: 14),
-                          _buildField(
-                            controller: _emailController,
-                            label: 'Email',
-                            hint: 'Enter your email',
-                            icon: Icons.email_outlined,
-                            keyboardType: TextInputType.emailAddress,
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                return 'Email cannot be empty';
-                              }
-                              if (!RegExp(
-                                r'^[^@]+@[^@]+\.[^@]+',
-                              ).hasMatch(v.trim())) {
-                                return 'Enter a valid email';
-                              }
-                              return null;
-                            },
-                          ),
                           const SizedBox(height: 24),
                           SizedBox(
                             width: double.infinity,
@@ -566,126 +409,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       borderRadius: BorderRadius.circular(2),
     ),
   );
-
-  Widget _divider(BuildContext ctx) => Divider(
-    height: 1,
-    indent: 56,
-    color: Theme.of(ctx).colorScheme.outline.withOpacity(0.15),
-  );
-
-  Widget _detailTile(
-    BuildContext ctx,
-    IconData icon,
-    String label,
-    String value,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.45),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.5),
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: Theme.of(
-                    ctx,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statusTile(
-    BuildContext ctx,
-    IconData icon,
-    String label,
-    bool status,
-    String subtitle,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.45),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(ctx).colorScheme.onSurface.withOpacity(0.5),
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: Theme.of(
-                    ctx,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: (status ? Colors.green : Colors.red).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  status ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                  size: 14,
-                  color: status ? Colors.green : Colors.red,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  status ? 'Yes' : 'No',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: status ? Colors.green : Colors.red,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildField({
     required TextEditingController controller,
@@ -833,7 +556,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(
                   context,
-                ).colorScheme.onSurface.withOpacity(0.55),
+                ).colorScheme.onSurface.withValues(alpha: 0.55),
               ),
               textAlign: TextAlign.center,
             ),
@@ -853,37 +576,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _showDetailsSheet,
-              icon: const Icon(Icons.info_outline_rounded, size: 18),
-              label: const Text('View Account Details'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
-}
-
-Widget _sectionLabel(BuildContext ctx, String title) {
-  return Padding(
-    padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
-    child: Text(
-      title.toUpperCase(),
-      style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
-        color: Theme.of(ctx).colorScheme.primary,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.2,
-      ),
-    ),
-  );
 }
