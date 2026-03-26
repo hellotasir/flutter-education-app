@@ -16,11 +16,23 @@ This repository contains a portfolio project created to demonstrate my software 
 
 ## Project Features
 
-Core Focus
+### Core Focus Areas
 
-- User Management
-- Payment Management
-- Course Management
+- **User Management** — Authentication, authorization, and profile handling using Supabase
+- **Course Management** — Content delivery, progress tracking, and updates via Firebase
+- **Real-time Communication** — Video calls and chat integration using Firebase and external APIs
+- **Live Location Tracking** — Real-time user location monitoring powered by Firebase and APIs
+- **E-commerce (Book Purchase)** — Product listing, cart, and order handling with Supabase
+- **Payment Management** — Secure transactions, billing, and payment tracking via Supabase & external APIs
+- **Notifications System** — Real-time push notifications, email, and SMS integration using APIs
+
+### Target Objective
+
+Build a feature-rich platform that covers **high-complexity, engineering-intensive functionalities**, focusing on areas that demand approximately **90% advanced software engineering expertise**, including:
+
+- Real-time systems
+- Scalable backend architecture
+- Seamless third-party integrations
 
 ## Disclaimer
 
@@ -28,9 +40,3 @@ The live application, database, and related backend services are provided solely
 These resources may be modified, restricted, or permanently shut down once the evaluation period is complete.
 While the project reflects practical development practices, some components may be simplified or configured specifically for demonstration purposes.
 Long-term availability, maintenance, and production-level guarantees are not provided.
-
-## Third-Party Services Used
-
-- Google Cloud Platform (GCP)
-- Firebase
-- Supabase

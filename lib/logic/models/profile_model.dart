@@ -14,6 +14,9 @@ class ProfileModel {
     required this.role,
     required this.visibility,
     required this.updatedAt,
+    this.displayName,
+    this.studentAvatarUrl,
+    this.instructorAvatarUrl,
   });
 
   final String userId;
@@ -22,6 +25,9 @@ class ProfileModel {
   final UserRole role;
   final ProfileVisibility visibility;
   final DateTime updatedAt;
+  final String? displayName;
+  final String? studentAvatarUrl;
+  final String? instructorAvatarUrl;
 
   static String encodeValue(String value) => base64Encode(utf8.encode(value));
 
@@ -37,15 +43,21 @@ class ProfileModel {
     'userId': encodeValue(userId),
     'email': encodeValue(email),
     'username': encodeValue(username),
+    'displayName': displayName != null ? encodeValue(displayName!) : null,
     'role': role.name,
     'visibility': visibility.name,
     'updatedAt': FieldValue.serverTimestamp(),
+    'studentAvatarUrl': studentAvatarUrl,
+    'instructorAvatarUrl': instructorAvatarUrl,
   };
 
   factory ProfileModel.fromFirestore(Map<String, dynamic> data) => ProfileModel(
     userId: decodeValue(data['userId'] as String? ?? ''),
     email: decodeValue(data['email'] as String? ?? ''),
     username: decodeValue(data['username'] as String? ?? ''),
+    displayName: data['displayName'] != null
+        ? decodeValue(data['displayName'] as String)
+        : null,
     role: UserRole.values.firstWhere(
       (r) => r.name == data['role'],
       orElse: () => UserRole.student,
@@ -55,6 +67,8 @@ class ProfileModel {
       orElse: () => ProfileVisibility.public,
     ),
     updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    studentAvatarUrl: data['studentAvatarUrl'] as String?,
+    instructorAvatarUrl: data['instructorAvatarUrl'] as String?,
   );
 
   ProfileModel copyWith({
@@ -64,6 +78,9 @@ class ProfileModel {
     UserRole? role,
     ProfileVisibility? visibility,
     DateTime? updatedAt,
+    String? displayName,
+    String? studentAvatarUrl,
+    String? instructorAvatarUrl,
   }) => ProfileModel(
     userId: userId ?? this.userId,
     email: email ?? this.email,
@@ -71,5 +88,8 @@ class ProfileModel {
     role: role ?? this.role,
     visibility: visibility ?? this.visibility,
     updatedAt: updatedAt ?? this.updatedAt,
+    displayName: displayName ?? this.displayName,
+    studentAvatarUrl: studentAvatarUrl ?? this.studentAvatarUrl,
+    instructorAvatarUrl: instructorAvatarUrl ?? this.instructorAvatarUrl,
   );
 }

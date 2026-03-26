@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/logic/models/feedback_model.dart';
-import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
 import 'package:flutter_education_app/logic/repositories/feedback_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/logic/services/firebase_firestore_service.dart';
@@ -284,10 +284,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     final filtered = _filtered;
     final currentUserId = _firestoreService.currentUserId;
 
-    // The "Add" button is only shown when:
-    //   • we have finished loading (_fetching == false), AND
-    //   • the current user has not yet submitted feedback (_myFeedback == null)
-    // This prevents the button from flickering in then out while loading.
     final canAdd = !_fetching && _myFeedback == null;
 
     return MaterialWidget(

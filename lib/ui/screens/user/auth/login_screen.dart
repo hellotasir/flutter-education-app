@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_education_app/logic/constants/app_details.dart';
-import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/ui/screens/user/auth_screen.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';

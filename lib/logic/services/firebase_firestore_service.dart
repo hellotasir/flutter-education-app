@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
 import 'package:flutter_education_app/logic/repositories/firestore_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -8,11 +9,12 @@ class FirestoreService<T> {
 
   final FirestoreRepository<T> _repository;
   final FirebaseFirestore _firestore;
+  final AuthRepository _authRepository = AuthRepository();
 
-  String? get currentUserId => Supabase.instance.client.auth.currentUser?.id;
-  User? get currentUser => Supabase.instance.client.auth.currentUser;
-  Stream<AuthState> get authStateChanges =>
-      Supabase.instance.client.auth.onAuthStateChange;
+
+  String? get currentUserId => _authRepository.currentUser?.id;
+  User? get currentUser =>  _authRepository.currentUser;
+  Stream<AuthState> get authStateChanges =>  _authRepository.authChanges;
 
   CollectionReference<Map<String, dynamic>> get _collection {
     final path = _repository.collectionPath;

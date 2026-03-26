@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 
