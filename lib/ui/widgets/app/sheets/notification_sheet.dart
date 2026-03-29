@@ -2,8 +2,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/ui/screens/user/settings_screen.dart';
-import 'package:flutter_education_app/ui/widgets/settings/settings_widget.dart';
+import 'package:flutter_education_app/ui/screens/app/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationsSheet extends StatefulWidget {

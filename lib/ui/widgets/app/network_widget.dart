@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_education_app/logic/services/connectivity_service.dart';
 import '../../screens/app/error_screen.dart';
 
-class NetworkGuard extends StatefulWidget {
+class NetworkWidget extends StatefulWidget {
   final Widget child;
 
-  const NetworkGuard({super.key, required this.child});
+  const NetworkWidget({super.key, required this.child});
 
   @override
-  State<NetworkGuard> createState() => _NetworkGuardState();
+  State<NetworkWidget> createState() => _NetworkWidgetState();
 }
 
-class _NetworkGuardState extends State<NetworkGuard> {
+class _NetworkWidgetState extends State<NetworkWidget> {
   final ConnectivityService _service = ConnectivityService();
 
   StreamSubscription<List<ConnectivityResult>>? _sub;

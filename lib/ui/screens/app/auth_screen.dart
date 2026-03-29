@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/ui/screens/home_screen.dart';
-import 'package:flutter_education_app/ui/screens/user/auth/login_screen.dart';
+import 'package:flutter_education_app/ui/screens/app/auth/login_screen.dart';
 import 'package:flutter_education_app/ui/screens/app/error_screen.dart';
 import 'package:flutter_education_app/ui/widgets/app/loading_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AuthScreen extends StatelessWidget {
-  AuthScreen({super.key});
+class AuthScreen extends StatefulWidget {
+  const AuthScreen({super.key});
 
-  final authRepo = AuthRepository();
+  @override
+  State<AuthScreen> createState() => _AuthScreenState();
+}
+
+class _AuthScreenState extends State<AuthScreen> {
+  AuthRepository authRepo = AuthRepository();
 
   @override
   Widget build(BuildContext context) {

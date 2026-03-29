@@ -8,6 +8,7 @@ class AuthService {
   Stream<AuthState> get authChanges => _client.auth.onAuthStateChange;
   bool get isAuthenticated => currentUser != null;
 
+  // Auth methods
   Future<AuthResponse> signInWithPassword({
     required String email,
     required String password,
@@ -18,6 +19,7 @@ class AuthService {
     );
   }
 
+  // Auth methods
   Future<AuthResponse> signUp({
     required String email,
     required String password,
@@ -32,16 +34,9 @@ class AuthService {
     );
   }
 
+  // Auth methods
   Future<UserResponse> updatePassword(String newPassword) async {
     return await _client.auth.updateUser(UserAttributes(password: newPassword));
-  }
-
-  Future<AuthResponse> verifyEmailOtp({
-    required String email,
-    required String token,
-    required OtpType type,
-  }) async {
-    return await _client.auth.verifyOTP(email: email, token: token, type: type);
   }
 
   Future<AuthResponse> signInWithIdToken({

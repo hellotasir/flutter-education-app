@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_education_app/logic/constants/app_details.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
-import 'package:flutter_education_app/ui/screens/user/auth_screen.dart';
+import 'package:flutter_education_app/ui/screens/app/auth_screen.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -11,6 +11,15 @@ import 'package:sign_in_button/sign_in_button.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'reset_password_screen.dart';
 import 'signup_screen.dart';
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(text, style: Theme.of(context).textTheme.labelMedium);
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -21,16 +30,21 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
+  final _repo = AuthRepository();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _repo = AuthRepository();
+  bool _loading = false;
+  bool _obscurePassword = true;
 
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
 
-  bool _loading = false;
-  bool _obscurePassword = true;
+  void _navigate(Widget screen) =>
+      AppNavigator(screen: screen).navigate(context);
+
+  void _showSnackbar(String message) =>
+      SnackbarWidget(message: message).showSnackbar(context);
 
   @override
   void initState() {
@@ -54,9 +68,6 @@ class _LoginScreenState extends State<LoginScreen>
     _passwordController.dispose();
     super.dispose();
   }
-
-  void _showSnackbar(String message) =>
-      SnackbarWidget(message: message).showSnackbar(context);
 
   Future<void> _login() async {
     final email = _emailController.text.trim();
@@ -107,9 +118,6 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (mounted) AppNavigator(screen: AuthScreen()).navigate(context);
   }
-
-  void _navigate(Widget screen) =>
-      AppNavigator(screen: screen).navigate(context);
 
   @override
   Widget build(BuildContext context) {
@@ -251,13 +259,4 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
-}
-
-class _FieldLabel extends StatelessWidget {
-  const _FieldLabel(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) =>
-      Text(text, style: Theme.of(context).textTheme.labelMedium);
 }

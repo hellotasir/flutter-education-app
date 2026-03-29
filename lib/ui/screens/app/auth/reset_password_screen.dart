@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 
@@ -12,14 +12,16 @@ class ResetPasswordScreen extends StatefulWidget {
 
 class _ResetPasswordScreenState extends State<ResetPasswordScreen>
     with SingleTickerProviderStateMixin {
-  final _emailController = TextEditingController();
   final _repo = AuthRepository();
-
+  final _emailController = TextEditingController();
   bool _loading = false;
 
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
+
+  void _showSnackbar(String message) =>
+      SnackbarWidget(message: message).showSnackbar(context);
 
   @override
   void initState() {
@@ -42,9 +44,6 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen>
     _emailController.dispose();
     super.dispose();
   }
-
-  void _showSnackbar(String message) =>
-      SnackbarWidget(message: message).showSnackbar(context);
 
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();

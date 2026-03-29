@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
-import 'package:flutter_education_app/ui/screens/user/auth/login_screen.dart';
+import 'package:flutter_education_app/ui/screens/app/auth/login_screen.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 import 'package:flutter_education_app/ui/widgets/safety/mfa_widget.dart';
@@ -114,13 +114,11 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen>
         AppNavigator(screen: LoginScreen()).navigate(context);
         setState(() => _step = _DeleteStep.deleted);
       }
-    } on Exception catch (e) {
+    } on Exception {
       if (mounted) {
-        SnackbarWidget(
-          message: 'Could not delete your account. Please try again.',
-        ).showSnackbar(context);
+        _showError('Could not delete your account. Please try again.');
       }
-      _showError('Could not delete your account. Please try again.\n$e');
+      _showError('Could not delete your account. Please try again.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

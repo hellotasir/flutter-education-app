@@ -1,8 +1,10 @@
 // ignore_for_file: unrelated_type_equality_checks
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/ui/screens/user/auth_screen.dart';
+import 'package:flutter_education_app/logic/constants/messages.dart';
+import 'package:flutter_education_app/ui/screens/app/auth_screen.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
+import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,7 +25,11 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    AppNavigator(screen: AuthScreen()).navigate(context);
+    try {
+      AppNavigator(screen: AuthScreen()).navigate(context);
+    } catch (e) {
+      SnackbarWidget(message: errorMessage).showSnackbar(context);
+    }
   }
 
   @override

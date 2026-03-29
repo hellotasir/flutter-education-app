@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_auth_service.dart';
+import '../services/auth_service.dart';
 
 class AuthRepository {
   final AuthService _service = AuthService();
@@ -28,19 +28,6 @@ class AuthRepository {
       data: data,
     );
     if (response.user == null) throw Exception('Signup failed');
-  }
-
-  Future<void> verifyEmailOtp({
-    required String email,
-    required String token,
-    required OtpType type,
-  }) async {
-    final response = await _service.verifyEmailOtp(
-      email: email,
-      token: token,
-      type: type,
-    );
-    if (response.user == null) throw Exception('Email OTP verification failed');
   }
 
   Future<void> signInWithIdToken({

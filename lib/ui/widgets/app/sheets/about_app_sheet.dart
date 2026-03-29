@@ -75,7 +75,7 @@ class AboutSheet extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // App icon + name + version
+         
             Container(
               width: 72,
               height: 72,

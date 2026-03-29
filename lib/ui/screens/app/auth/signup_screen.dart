@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 
@@ -12,10 +12,10 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen>
     with SingleTickerProviderStateMixin {
+  final _repo = AuthRepository();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _repo = AuthRepository();
 
   bool _loading = false;
   bool _obscurePassword = true;
@@ -24,6 +24,9 @@ class _SignupScreenState extends State<SignupScreen>
   late final AnimationController _animController;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
+
+  void _showSnackbar(String message) =>
+      SnackbarWidget(message: message).showSnackbar(context);
 
   @override
   void initState() {
@@ -48,9 +51,6 @@ class _SignupScreenState extends State<SignupScreen>
     _confirmPasswordController.dispose();
     super.dispose();
   }
-
-  void _showSnackbar(String message) =>
-      SnackbarWidget(message: message).showSnackbar(context);
 
   Future<void> _signup() async {
     final email = _emailController.text.trim();

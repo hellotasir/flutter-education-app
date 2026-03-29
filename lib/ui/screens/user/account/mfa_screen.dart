@@ -2,16 +2,15 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
+import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 import 'package:flutter_education_app/ui/widgets/safety/mfa_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-final AuthRepository authRepository = AuthRepository();
-
 class MfaScreen extends StatefulWidget {
-  MfaScreen({super.key, required this.authRepository});
+  const MfaScreen({super.key, required this.authRepository});
 
   final AuthRepository authRepository;
 
@@ -26,6 +25,7 @@ class MfaScreen extends StatefulWidget {
 }
 
 class _MfaScreenState extends State<MfaScreen> {
+  final authRepository = AuthRepository();
   _MfaStep _step = _MfaStep.checking;
   bool _isLoading = false;
 
@@ -50,6 +50,11 @@ class _MfaScreenState extends State<MfaScreen> {
     super.dispose();
   }
 
+  void _showError(String message) {
+    if (!mounted) return;
+    SnackbarWidget(message: message).showSnackbar(context);
+  }
+
   Future<void> _checkMfaStatus() async {
     setState(() => _isLoading = true);
     try {
@@ -58,7 +63,7 @@ class _MfaScreenState extends State<MfaScreen> {
         _step = _factors.isNotEmpty ? _MfaStep.enabled : _MfaStep.intro;
       });
     } catch (e) {
-      _showError('Could not load MFA status: $e');
+      _showError('Could not load MFA status');
       setState(() => _step = _MfaStep.intro);
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -74,7 +79,7 @@ class _MfaScreenState extends State<MfaScreen> {
       _qrSvg = response.totp?.qrCode;
       setState(() => _step = _MfaStep.scan);
     } catch (e) {
-      _showError('Enrollment failed: $e');
+      _showError('Enrollment failed');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -131,13 +136,6 @@ class _MfaScreenState extends State<MfaScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  void _showError(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red.shade600),
-    );
   }
 
   Future<bool?> _showConfirmDialog({

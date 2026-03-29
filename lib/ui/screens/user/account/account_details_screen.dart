@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
 
@@ -142,7 +142,7 @@ class _DetailDivider extends StatelessWidget {
     return Divider(
       height: 1,
       indent: 56,
-      color: Theme.of(context).colorScheme.outline.withOpacity(0.15),
+      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
     );
   }
 }
@@ -168,7 +168,9 @@ class _DetailTile extends StatelessWidget {
           Icon(
             icon,
             size: 20,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.45),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -180,7 +182,7 @@ class _DetailTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withOpacity(0.5),
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.3,
                   ),
@@ -223,7 +225,9 @@ class _StatusTile extends StatelessWidget {
           Icon(
             icon,
             size: 20,
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.45),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.45),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -235,7 +239,7 @@ class _StatusTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withOpacity(0.5),
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.3,
                   ),
@@ -253,7 +257,9 @@ class _StatusTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: (status ? Colors.green : Colors.red).withOpacity(0.1),
+              color: (status ? Colors.green : Colors.red).withValues(
+                alpha: 0.1,
+              ),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(

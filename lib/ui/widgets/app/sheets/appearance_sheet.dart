@@ -50,7 +50,6 @@ class _AppearanceSheetState extends State<AppearanceSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Drag handle
             Center(
               child: Container(
                 width: 40,
@@ -83,7 +82,6 @@ class _AppearanceSheetState extends State<AppearanceSheet> {
 
             const SizedBox(height: 20),
 
-            /// ✅ NEW: RadioGroup controls selection
             RadioGroup<String>(
               groupValue: _theme,
               onChanged: (value) {

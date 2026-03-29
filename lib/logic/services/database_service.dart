@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
-import 'package:flutter_education_app/logic/repositories/firestore_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/database_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FirestoreService<T> {

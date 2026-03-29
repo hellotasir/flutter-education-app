@@ -1,14 +1,13 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
-import 'package:flutter_education_app/ui/screens/user/settings/account/account_details_screen.dart';
-import 'package:flutter_education_app/ui/screens/user/settings/account/delete_account_screen.dart';
-import 'package:flutter_education_app/ui/screens/user/settings/account/mfa_screen.dart';
-import 'package:flutter_education_app/ui/screens/user/settings/account/reset_password_screen.dart';
-import 'package:flutter_education_app/ui/screens/user/settings/account/update_email_screen.dart';
-import 'package:flutter_education_app/ui/screens/user/settings_screen.dart';
-import 'package:flutter_education_app/ui/widgets/settings/settings_widget.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
+import 'package:flutter_education_app/ui/screens/user/account/account_details_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/account/delete_account_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/account/mfa_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/account/reset_password_screen.dart';
+import 'package:flutter_education_app/ui/screens/user/account/update_email_screen.dart';
+import 'package:flutter_education_app/ui/screens/app/settings_screen.dart';
 
 void openFullSheet(BuildContext context, Widget child) {
   showModalBottomSheet(

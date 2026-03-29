@@ -1,12 +1,14 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/logic/constants/messages.dart';
 import 'package:flutter_education_app/logic/models/feedback_model.dart';
-import 'package:flutter_education_app/logic/repositories/supabase_auth_repository.dart';
+import 'package:flutter_education_app/logic/repositories/auth_repository.dart';
 import 'package:flutter_education_app/logic/repositories/feedback_repository.dart';
 import 'package:flutter_education_app/logic/routers/app_navigator.dart';
-import 'package:flutter_education_app/logic/services/firebase_firestore_service.dart';
+import 'package:flutter_education_app/logic/services/database_service.dart';
 import 'package:flutter_education_app/ui/widgets/app/material_widget.dart';
+import 'package:flutter_education_app/ui/widgets/app/snackbar_widget.dart';
 
 enum _SortOrder { newest, oldest, highestRating, lowestRating }
 
@@ -118,6 +120,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         });
       }
     } catch (_) {
+      SnackbarWidget(message: errorMessage).showSnackbar(context);
     } finally {
       if (mounted) setState(() => _fetching = false);
     }
@@ -164,90 +167,106 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   }
 
   void _openForm({FeedbackModel? existing}) {
-    if (existing == null && _myFeedback != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'You have already submitted feedback. Use Edit to update it.',
+    try {
+      if (existing == null && _myFeedback != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'You have already submitted feedback. Use Edit to update it.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.92,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (ctx, scrollController) => _FeedbackForm(
+            service: _firestoreService,
+            existing: existing,
+            scrollController: scrollController,
           ),
         ),
-      );
-      return;
+      ).then((submitted) {
+        if (submitted == true) _loadFeedback();
+      });
+    } catch (e) {
+      SnackbarWidget(message: errorMessage).showSnackbar(context);
     }
-
-    showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.92,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        builder: (ctx, scrollController) => _FeedbackForm(
-          service: _firestoreService,
-          existing: existing,
-          scrollController: scrollController,
-        ),
-      ),
-    ).then((submitted) {
-      if (submitted == true) _loadFeedback();
-    });
   }
 
   Future<void> _deleteSingle(FeedbackModel feedback) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Feedback'),
-        content: const Text(
-          'Are you sure you want to delete your submitted feedback?',
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete Feedback'),
+          content: const Text(
+            'Are you sure you want to delete your submitted feedback?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await _firestoreService.deleteByDocId(feedback.id!);
-    _loadFeedback();
+      );
+      if (confirmed != true) return;
+      await _firestoreService.deleteByDocId(feedback.id!);
+      _loadFeedback();
+    } catch (e) {
+      SnackbarWidget(message: actionErrorMessage).showSnackbar(context);
+    }
   }
 
   Future<void> _deleteAll() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete ALL Feedback'),
-        content: const Text(
-          'This will permanently delete every feedback document. This cannot be undone.',
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delete ALL Feedback'),
+          content: const Text(
+            'This will permanently delete every feedback document. This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade800,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete All'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade800),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete All'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await _firestoreService.deleteCollection();
-    _loadFeedback();
+      );
+      if (confirmed != true) return;
+      await _firestoreService.deleteCollection();
+      _loadFeedback();
+    } catch (e) {
+      SnackbarWidget(message: actionErrorMessage).showSnackbar(context);
+    }
   }
 
   void _showSortFilter() {
@@ -367,9 +386,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.outline.withOpacity(0.3),
+                                    color: Theme.of(context).colorScheme.outline
+                                        .withValues(alpha: 0.3),
                                   ),
                                 ),
                                 isDense: true,
@@ -463,16 +481,17 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                               size: 40,
                               color: Theme.of(
                                 context,
-                              ).colorScheme.onSurface.withOpacity(0.3),
+                              ).colorScheme.onSurface.withValues(alpha: 0.3),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               'No results found',
                               style: Theme.of(context).textTheme.titleSmall
                                   ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface.withOpacity(0.5),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.5),
                                   ),
                             ),
                             const SizedBox(height: 4),
@@ -526,13 +545,17 @@ class _EmptyState extends StatelessWidget {
             Icon(
               Icons.feedback_outlined,
               size: 56,
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.25),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.25),
             ),
             const SizedBox(height: 16),
             Text(
               'No feedback yet',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(height: 6),
@@ -540,7 +563,9 @@ class _EmptyState extends StatelessWidget {
               'Be the first to share your thoughts.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),
             const SizedBox(height: 24),
@@ -603,7 +628,9 @@ class _FilterSheetState extends State<_FilterSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                color: Theme.of(
+                  context,
+                ).colorScheme.outline.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -707,7 +734,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                           decoration: BoxDecoration(
                             color: selected
                                 ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.surfaceVariant,
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
@@ -792,7 +821,7 @@ class _FeedbackTile extends StatelessWidget {
                 radius: 18,
                 backgroundColor: Theme.of(
                   context,
-                ).colorScheme.primary.withOpacity(0.12),
+                ).colorScheme.primary.withValues(alpha: 0.12),
                 child: Text(
                   (feedback.userName.isNotEmpty ? feedback.userName[0] : '?')
                       .toUpperCase(),
@@ -829,7 +858,7 @@ class _FeedbackTile extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Theme.of(
                                 context,
-                              ).colorScheme.primary.withOpacity(0.1),
+                              ).colorScheme.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -856,9 +885,8 @@ class _FeedbackTile extends StatelessWidget {
                             size: 14,
                             color: i < feedback.rating
                                 ? Colors.amber
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.3),
+                                : Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.3),
                           );
                         }),
                         const SizedBox(width: 8),
@@ -868,7 +896,9 @@ class _FeedbackTile extends StatelessWidget {
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceVariant,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -884,7 +914,7 @@ class _FeedbackTile extends StatelessWidget {
                               ?.copyWith(
                                 color: Theme.of(
                                   context,
-                                ).colorScheme.onSurface.withOpacity(0.4),
+                                ).colorScheme.onSurface.withValues(alpha: 0.4),
                               ),
                         ),
                       ],
@@ -895,7 +925,7 @@ class _FeedbackTile extends StatelessWidget {
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(
                           context,
-                        ).colorScheme.onSurface.withOpacity(0.75),
+                        ).colorScheme.onSurface.withValues(alpha: 0.75),
                         height: 1.5,
                       ),
                     ),
@@ -1101,7 +1131,7 @@ class _FeedbackFormState extends State<_FeedbackForm> {
                     size: 48,
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withOpacity(0.3),
+                    ).colorScheme.onSurface.withValues(alpha: 0.3),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -1118,7 +1148,7 @@ class _FeedbackFormState extends State<_FeedbackForm> {
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(
                         context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
                       height: 1.5,
                     ),
                   ),
@@ -1140,7 +1170,7 @@ class _FeedbackFormState extends State<_FeedbackForm> {
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(
                         context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
+                      ).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -1238,7 +1268,8 @@ class _FormSheetScaffold extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+              color: Theme.of(context).colorScheme.outline
+                ..withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),

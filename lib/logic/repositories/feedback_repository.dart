@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_education_app/logic/models/feedback_model.dart';
-import 'package:flutter_education_app/logic/repositories/firestore_repository.dart';
+import 'package:flutter_education_app/logic/repositories/database_repository.dart';
 
 class FeedbackRepository implements FirestoreRepository<FeedbackModel> {
   @override
