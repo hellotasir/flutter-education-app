@@ -10,7 +10,6 @@ import 'package:flutter_education_app/features/chat/repositories/chat_repository
     hide MessageLimitException;
 import 'package:flutter_education_app/features/chat/screens/chat_settings_screen.dart';
 import 'package:flutter_education_app/features/chat/widgets/shared/audio_message_bubble.dart';
-import 'package:flutter_education_app/features/chat/widgets/shared/call_message_bubble.dart';
 import 'package:flutter_education_app/features/chat/widgets/shared/image_message_bubble.dart';
 import 'package:flutter_education_app/features/chat/widgets/shared/video_message_bubble.dart';
 import 'package:flutter_education_app/features/user/screens/profile_screen.dart';
@@ -920,16 +919,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
       case MessageType.file:
         return _buildFileMessage(msg, isMe, cs, tt, bubbleColor, borderRadius);
-
-      case MessageType.call:
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: bubbleColor,
-            borderRadius: borderRadius,
-          ),
-          child: CallMessageBubble(message: msg, isMe: isMe),
-        );
 
       default:
         return Text(
