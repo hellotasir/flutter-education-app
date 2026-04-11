@@ -26,7 +26,7 @@ class FriendRequestModel {
   final DateTime sentAt;
   final DateTime? respondedAt;
 
-  factory FriendRequestModel.fromSnapshot(
+  static FriendRequestModel fromSnapshot(
     DocumentSnapshot<Map<String, dynamic>> snap,
   ) {
     final data = snap.data()!;
@@ -56,8 +56,7 @@ class FriendRequestModel {
     'to_username': toUsername,
     'status': status.name,
     'sent_at': Timestamp.fromDate(sentAt),
-    'responded_at': respondedAt != null
-        ? Timestamp.fromDate(respondedAt!)
-        : null,
+    'responded_at':
+        respondedAt != null ? Timestamp.fromDate(respondedAt!) : null,
   };
 }

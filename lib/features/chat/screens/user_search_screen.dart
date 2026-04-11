@@ -58,7 +58,6 @@ class _UserSearchScreenState extends State<UserSearchScreen> {
       final results = await widget.chatRepository.searchUsersByUsername(query);
       setState(() {
         _results = results.where((r) {
-          // The repository now always returns 'user_id' as a flat key
           final id = r['user_id'] as String? ?? r['id'] as String? ?? '';
           if (id == widget.currentUserId) return false;
           if (widget.isGroupAddMode && widget.existingMemberIds.contains(id)) {

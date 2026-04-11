@@ -66,10 +66,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
 
   Future<void> _loadFriends() async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _loadError = null;
-    });
+    setState(() { _isLoading = true; _loadError = null; });
     try {
       final friends = await widget.chatRepository.getFriendsList(
         widget.currentUserId,
@@ -82,7 +79,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
         });
         _fadeController.forward();
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -125,14 +122,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
   String _resolveId(Map<String, dynamic> user) {
     final uid = user['user_id'] as String?;
     if (uid != null && uid.isNotEmpty) return uid;
-    final id = user['id'] as String?;
-    if (id != null && id.isNotEmpty) return id;
-    return '';
+    return user['id'] as String? ?? '';
   }
 
   Future<void> _pickGroupImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
+    final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       maxWidth: 512,
       maxHeight: 512,
@@ -151,7 +145,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
         _groupImageFile!,
         widget.currentUserId,
       );
-    } catch (e) {
+    } catch (_) {
       _showSnack('Failed to upload group image');
       return null;
     } finally {
@@ -161,18 +155,13 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
 
   Future<void> _createGroup() async {
     final name = _groupNameController.text.trim();
-    if (name.isEmpty) {
-      _showSnack('Please enter a group name');
-      return;
-    }
-    if (_selectedIds.isEmpty) {
-      _showSnack('Select at least one member');
-      return;
-    }
+    if (name.isEmpty) { _showSnack('Please enter a group name'); return; }
+    if (_selectedIds.isEmpty) { _showSnack('Select at least one member'); return; }
     setState(() => _isCreating = true);
     try {
       final groupPhotoUrl = await _uploadGroupImage();
-      final conversation = await widget.chatRepository.createGroupConversation(
+      final conversation =
+          await widget.chatRepository.createGroupConversation(
         adminUserId: widget.currentUserId,
         adminUsername: widget.currentUsername,
         groupName: name,
@@ -275,7 +264,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
       ),
       body: Column(
         children: [
-         
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             child: Row(
@@ -313,10 +301,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
                             color: cs.onSurface.withValues(alpha: 0.25),
                           ),
                           isDense: true,
-                          contentPadding: const EdgeInsets.only(
-                            top: 4,
-                            bottom: 6,
-                          ),
+                          contentPadding:
+                              const EdgeInsets.only(top: 4, bottom: 6),
                           enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(
                               color: cs.outlineVariant,
@@ -337,10 +323,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
               ],
             ),
           ),
-
           const SizedBox(height: 14),
-
-        
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
@@ -375,10 +358,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
                   size: 18,
                   color: cs.onSurface.withValues(alpha: 0.4),
                 ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 36,
-                ),
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 40, minHeight: 36),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(
@@ -395,8 +376,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
               ),
             ),
           ),
-SizedBox(height: 12),
-         
+          const SizedBox(height: 12),
           AnimatedSize(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
@@ -411,8 +391,6 @@ SizedBox(height: 12),
                     }),
                   ),
           ),
-
-        
           if (!_isLoading && _friends.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 2),
@@ -447,8 +425,6 @@ SizedBox(height: 12),
                 ],
               ),
             ),
-
-       
           Expanded(child: _buildBody(cs, tt)),
         ],
       ),
@@ -459,7 +435,6 @@ SizedBox(height: 12),
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
-
     if (_loadError != null) {
       return Center(
         child: GestureDetector(
@@ -485,11 +460,9 @@ SizedBox(height: 12),
         ),
       );
     }
-
     if (_friends.isEmpty) {
       return _EmptyFriends(colorScheme: cs, textTheme: tt);
     }
-
     if (_searchResults.isEmpty) {
       return Center(
         child: Column(
@@ -517,6 +490,8 @@ SizedBox(height: 12),
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 32),
         itemCount: _searchResults.length,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, i) {
           final user = _searchResults[i];
           final id = _resolveId(user);
@@ -525,15 +500,15 @@ SizedBox(height: 12),
           final photoUrl = user['profile_photo'] as String? ?? '';
           final isSelected = _selectedIds.contains(id);
           final displayName = fullName.isNotEmpty ? fullName : username;
-
           return _FriendTile(
+            key: ValueKey(id),
             displayName: displayName,
             username: username,
             fullName: fullName,
             photoUrl: photoUrl,
             isSelected: isSelected,
-            colorScheme: Theme.of(context).colorScheme,
-            textTheme: Theme.of(context).textTheme,
+            colorScheme: cs,
+            textTheme: tt,
             onTap: () => _toggleUser(user),
           );
         },
@@ -542,9 +517,9 @@ SizedBox(height: 12),
   }
 }
 
-
 class _FriendTile extends StatelessWidget {
   const _FriendTile({
+    super.key,
     required this.displayName,
     required this.username,
     required this.fullName,
@@ -589,7 +564,6 @@ class _FriendTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Avatar
             Stack(
               children: [
                 CircleAvatar(
@@ -620,7 +594,6 @@ class _FriendTile extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 12),
-            // Name
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -628,7 +601,8 @@ class _FriendTile extends StatelessWidget {
                 children: [
                   Text(
                     displayName,
-                    style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    style: tt.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -645,7 +619,6 @@ class _FriendTile extends StatelessWidget {
                 ],
               ),
             ),
-            // Checkbox indicator
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 150),
               child: isSelected
@@ -682,7 +655,6 @@ class _FriendTile extends StatelessWidget {
     );
   }
 }
-
 
 class _GroupAvatarPicker extends StatelessWidget {
   const _GroupAvatarPicker({
@@ -739,7 +711,6 @@ class _GroupAvatarPicker extends StatelessWidget {
   }
 }
 
-
 class _SelectedChips extends StatelessWidget {
   const _SelectedChips({
     required this.selectedIds,
@@ -795,10 +766,6 @@ class _SelectedChips extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Empty state
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _EmptyFriends extends StatelessWidget {
   const _EmptyFriends({required this.colorScheme, required this.textTheme});

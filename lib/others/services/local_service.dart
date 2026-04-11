@@ -1,413 +1,267 @@
-// ignore_for_file: unused_element
-
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter_education_app/features/track/models/local_model.dart';
-import 'package:flutter_education_app/features/track/repositories/local_repository.dart';
+import 'package:flutter_education_app/features/map/repositories/local_repository.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_education_app/features/map/models/local_model.dart';
 import 'package:http/http.dart' as http;
 
-/// High-level service that glues together:
-///   • Device GPS  (via `geolocator`)
-///   • Nominatim / OpenStreetMap  (reverse + forward geocoding — no API key required)
-///   • Distance calculation (Haversine)
-///   • Firestore persistence  (via [LocationRepository])
-///
-/// ─────────────────────────────────────────────────────────────────────────────
-/// USAGE PATTERN
-/// ─────────────────────────────────────────────────────────────────────────────
-///
-///   // Student saves GPS fix
-///   await locationService.saveStudentCurrentLocation(userId: userId);
-///
-///   // Instructor saves GPS fix
-///   await locationService.saveInstructorCurrentLocation(userId: userId);
-///
-///   // Instructor adds custom address
-///   await locationService.saveInstructorCustomAddress(
-///     userId: userId,
-///     rawAddress: '221B Baker Street, London',
-///     label: 'Studio',
-///     isDefault: true,
-///   );
-///
-///   // Student measures distance to instructor
-///   final km = await locationService.distanceToInstructor(
-///     studentUserId: studentId,
-///     instructorUserId: instructorId,
-///   );
-///
-class LocationService {
-  LocationService({LocationRepository? repository, http.Client? httpClient})
-    : _repository = repository ?? LocationRepository(),
-      _http = httpClient ?? http.Client();
+class LocationPermissionException implements Exception {
+  const LocationPermissionException(this.message);
+  final String message;
+}
 
-  final LocationRepository _repository;
-  final http.Client _http;
+class LocationServiceDisabledException implements Exception {
+  const LocationServiceDisabledException(this.message);
+  final String message;
+}
 
-  /// Nominatim base URL — free, no API key, no credit card required.
-  static const String _nominatimBaseUrl = 'https://nominatim.openstreetmap.org';
+class GeocodingException implements Exception {
+  const GeocodingException(this.message);
+  final String message;
+}
 
-  /// User-Agent is required by Nominatim's usage policy.
-  /// Replace 'EduMapApp/1.0' with your actual app name + version.
-  static const Map<String, String> _nominatimHeaders = {
+/// Thin wrapper around OpenStreetMap Nominatim so the rest of the service
+/// never has to know about HTTP or JSON parsing.
+class _NominatimClient {
+  static const _baseUrl = 'https://nominatim.openstreetmap.org';
+
+  // Nominatim requires a meaningful User-Agent string.
+  static const _headers = {
+    'User-Agent': 'FlutterEducationApp/1.0 (your@email.com)',
     'Accept-Language': 'en',
-    'User-Agent': 'EduMapApp/1.0',
   };
 
-  // ── Permission & GPS ────────────────────────────────────────────────────────
-
-  /// Requests location permission if not already granted.
-  /// Throws [LocationPermissionException] when permanently denied.
-  Future<void> ensurePermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      throw LocationPermissionException(
-        'Location permission is permanently denied. '
-        'Please enable it in device settings.',
+  /// Reverse-geocode: coordinates → address JSON map.
+  Future<Map<String, dynamic>> reverseGeocode(double lat, double lng) async {
+    final uri = Uri.parse('$_baseUrl/reverse?format=jsonv2&lat=$lat&lon=$lng');
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode != 200) {
+      throw GeocodingException(
+        'Nominatim reverse geocode failed: ${response.statusCode}',
       );
     }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
 
+  /// Forward-geocode: address string → list of result JSON maps.
+  Future<List<Map<String, dynamic>>> forwardGeocode(String query) async {
+    final uri = Uri.parse(
+      '$_baseUrl/search?format=jsonv2&q=${Uri.encodeComponent(query)}&limit=1',
+    );
+    final response = await http.get(uri, headers: _headers);
+    if (response.statusCode != 200) {
+      throw GeocodingException(
+        'Nominatim forward geocode failed: ${response.statusCode}',
+      );
+    }
+    final list = jsonDecode(response.body) as List<dynamic>;
+    return list.cast<Map<String, dynamic>>();
+  }
+}
+
+class LocationService {
+  LocationService({LocationRepository? repository})
+    : _repo = repository ?? LocationRepository(),
+      _nominatim = _NominatimClient();
+
+  final LocationRepository _repo;
+  final _NominatimClient _nominatim;
+
+  // ---------------------------------------------------------------------------
+  // Device position
+  // ---------------------------------------------------------------------------
+
+  Future<Position> _acquirePosition() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      throw LocationServiceDisabledException(
-        'Location services are disabled on this device.',
+      throw const LocationServiceDisabledException(
+        'Location services are disabled.',
       );
     }
-  }
 
-  Future<void> setDefaultAddress({
-    required String userId,
-    required String locationId,
-  }) {
-    return _repository.setDefaultAddress(userId, locationId);
-  }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw const LocationPermissionException(
+          'Location permission was denied.',
+        );
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      throw const LocationPermissionException(
+        'Location permission is permanently denied.',
+      );
+    }
 
-  Future<LocationModel?> getInstructorDefaultLocation(String instructorUserId) {
-    return _repository.getInstructorDefaultLocation(instructorUserId);
-  }
-
-  /// Gets the device's current GPS position.
-  Future<Position> getCurrentPosition({
-    LocationAccuracy accuracy = LocationAccuracy.high,
-  }) async {
-    await ensurePermission();
     return Geolocator.getCurrentPosition(
-      desiredAccuracy: accuracy,
-      timeLimit: const Duration(seconds: 15),
+      desiredAccuracy: LocationAccuracy.high,
     );
   }
 
-  // ── Geocoding (Nominatim / OpenStreetMap) ───────────────────────────────────
 
-  /// Reverse-geocodes [latLng] into a human-readable [AddressComponents].
-  /// Uses Nominatim — free, no API key required.
-  Future<AddressComponents> reverseGeocode(LatLng latLng) async {
-    final uri = Uri.parse(
-      '$_nominatimBaseUrl/reverse'
-      '?lat=${latLng.latitude}'
-      '&lon=${latLng.longitude}'
-      '&format=json',
-    );
+  Future<AddressComponents> _reverseGeocode(double lat, double lng) async {
+    try {
+      final json = await _nominatim.reverseGeocode(lat, lng);
 
-    final response = await _http.get(uri, headers: _nominatimHeaders);
+      // Nominatim wraps address parts inside an "address" sub-object.
+      final addr = (json['address'] as Map<String, dynamic>?) ?? {};
 
-    if (response.statusCode != 200) {
-      throw GeocodingException(
-        'Reverse geocode failed with status ${response.statusCode}',
+      final street = [
+        addr['house_number'] as String?,
+        addr['road'] as String?,
+      ].where((s) => s != null && s.isNotEmpty).join(' ');
+
+      final city =
+          (addr['city'] as String?) ??
+          (addr['town'] as String?) ??
+          (addr['village'] as String?) ??
+          '';
+
+      final state = (addr['state'] as String?) ?? '';
+      final country = (addr['country'] as String?) ?? '';
+      final postalCode = (addr['postcode'] as String?) ?? '';
+      final formatted = (json['display_name'] as String?) ?? '$lat, $lng';
+
+      return AddressComponents(
+        street: street,
+        city: city,
+        state: state,
+        country: country,
+        postalCode: postalCode,
+        formattedAddress: formatted,
       );
+    } on GeocodingException {
+      rethrow;
+    } catch (e) {
+      throw GeocodingException(e.toString());
     }
-
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-
-    if (body.containsKey('error')) {
-      return const AddressComponents(
-        street: '',
-        city: '',
-        state: '',
-        country: '',
-        postalCode: '',
-        formattedAddress: 'Unknown location',
-      );
-    }
-
-    return _parseNominatimAddress(body);
   }
 
-  /// Forward-geocodes a [rawAddress] string into [LatLng] + [AddressComponents].
-  /// Uses Nominatim — free, no API key required.
-  Future<({LatLng coordinates, AddressComponents address})> forwardGeocode(
+
+  Future<({double lat, double lng})> _forwardGeocodeCoords(
     String rawAddress,
   ) async {
-    final uri = Uri.parse(
-      '$_nominatimBaseUrl/search'
-      '?q=${Uri.encodeComponent(rawAddress)}'
-      '&format=json'
-      '&limit=1',
-    );
-
-    final response = await _http.get(uri, headers: _nominatimHeaders);
-
-    if (response.statusCode != 200) {
-      throw GeocodingException(
-        'Forward geocode failed with status ${response.statusCode}',
-      );
-    }
-
-    final results = jsonDecode(response.body) as List<dynamic>;
-
-    if (results.isEmpty) {
-      throw GeocodingException('No results found for address: $rawAddress');
-    }
-
-    final first = results.first as Map<String, dynamic>;
-
+    final results = await _nominatim.forwardGeocode(rawAddress);
+    if (results.isEmpty) throw const GeocodingException('Address not found.');
     return (
-      coordinates: LatLng(
-        latitude: double.parse(first['lat'] as String),
-        longitude: double.parse(first['lon'] as String),
-      ),
-      address: _parseNominatimAddress(first),
+      lat: double.parse(results.first['lat'] as String),
+      lng: double.parse(results.first['lon'] as String),
     );
   }
 
-  // ── Student operations ──────────────────────────────────────────────────────
 
-  /// Fetches device GPS, reverse-geocodes it, and saves as the student's
-  /// current location. Always overwrites the previous document.
-  Future<LocationModel> saveStudentCurrentLocation({
+  Future<LocationModel> saveCurrentLocation({
     required String userId,
-  }) async {
-    final position = await getCurrentPosition();
-    final coords = LatLng(
-      latitude: position.latitude,
-      longitude: position.longitude,
-    );
-    final address = await reverseGeocode(coords);
-
-    final model = LocationModel(
-      userId: userId,
-      role: 'student',
-      type: LocationType.currentLocation,
-      coordinates: coords,
-      address: address,
-      isDefault: true,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      accuracy: position.accuracy,
-      isVisible: false, // students' locations are never shown to others
-    );
-
-    await _repository.upsertStudentLocation(model);
-    debugPrint('📍 Student location saved: ${address.formattedAddress}');
-    return model;
-  }
-
-  // ── Instructor operations ───────────────────────────────────────────────────
-
-  /// Fetches device GPS, reverse-geocodes it, and upserts the instructor's
-  /// current-location document.
-  Future<LocationModel> saveInstructorCurrentLocation({
-    required String userId,
+    required String role,
     bool isVisible = true,
   }) async {
-    final position = await getCurrentPosition();
-    final coords = LatLng(
-      latitude: position.latitude,
-      longitude: position.longitude,
+    final position = await _acquirePosition();
+    final address = await _reverseGeocode(
+      position.latitude,
+      position.longitude,
     );
-    final address = await reverseGeocode(coords);
+    final now = DateTime.now();
 
     final model = LocationModel(
       userId: userId,
-      role: 'instructor',
+      role: role,
       type: LocationType.currentLocation,
-      coordinates: coords,
+      coordinates: LatLng(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      ),
       address: address,
       isDefault: false,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
       accuracy: position.accuracy,
       isVisible: isVisible,
     );
 
-    await _repository.upsertInstructorCurrentLocation(model);
-    debugPrint('📍 Instructor GPS location saved: ${address.formattedAddress}');
+    await _repo.upsertCurrentLocation(model);
     return model;
   }
 
-  /// Forward-geocodes [rawAddress] and saves it as an instructor custom address.
-  Future<LocationModel> saveInstructorCustomAddress({
+  Future<LocationModel> saveCustomLocation({
     required String userId,
+    required String role,
     required String rawAddress,
     String? label,
     bool isDefault = false,
     bool isVisible = true,
   }) async {
-    final result = await forwardGeocode(rawAddress);
+    // Single forward-geocode call; reuse coords for both address + LatLng.
+    final coords = await _forwardGeocodeCoords(rawAddress);
+    final address = await _reverseGeocode(coords.lat, coords.lng);
+    final now = DateTime.now();
 
     final model = LocationModel(
       userId: userId,
-      role: 'instructor',
+      role: role,
       type: LocationType.customAddress,
-      coordinates: result.coordinates,
-      address: result.address,
+      coordinates: LatLng(latitude: coords.lat, longitude: coords.lng),
+      address: address,
       label: label,
       isDefault: isDefault,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
+      createdAt: now,
+      updatedAt: now,
       isVisible: isVisible,
     );
 
-    final docId = await _repository.addInstructorCustomAddress(model);
-    debugPrint(
-      '📍 Instructor custom address saved [$docId]: ${result.address.formattedAddress}',
-    );
-    return model.copyWith(id: docId);
+    final id = await _repo.addCustomLocation(model);
+    return model.copyWith(id: id);
   }
 
-  /// Updates an existing instructor custom address (identified by [model.id]).
-  Future<LocationModel> updateInstructorCustomAddress({
-    required LocationModel model,
-    String? newRawAddress,
-    String? label,
-    bool? isDefault,
-    bool? isVisible,
+  Future<void> deleteCustomLocation(String docId) =>
+      _repo.deleteCustomLocation(docId);
+
+  Future<void> setDefaultLocation({
+    required String userId,
+    required String role,
+    required String locationId,
+  }) => _repo.setDefaultLocation(userId, role, locationId);
+
+  Stream<LocationModel?> watchCurrentLocation(String userId, String role) =>
+      _repo.watchCurrentLocation(userId, role);
+
+  Stream<List<LocationModel>> watchAllLocations(String userId, String role) =>
+      _repo.watchAllLocations(userId, role);
+
+  Future<LocationModel?> getDefaultLocation(String userId, String role) =>
+      _repo.getDefaultLocation(userId, role);
+
+  Future<LocationModel?> getCurrentLocation(String userId, String role) =>
+      _repo.getCurrentLocation(userId, role);
+
+  Future<double?> distanceBetween({
+    required String userIdA,
+    required String roleA,
+    required String userIdB,
+    required String roleB,
   }) async {
-    LocationModel updated = model.copyWith(
-      label: label,
-      isDefault: isDefault,
-      isVisible: isVisible,
-      updatedAt: DateTime.now(),
-    );
+    final locA = await _repo.getCurrentLocation(userIdA, roleA);
+    final locB = await _repo.getDefaultLocation(userIdB, roleB);
 
-    if (newRawAddress != null) {
-      final result = await forwardGeocode(newRawAddress);
-      updated = updated.copyWith(
-        coordinates: result.coordinates,
-        address: result.address,
-      );
-    }
+    if (locA == null || locB == null) return null;
 
-    await _repository.updateInstructorCustomAddress(updated);
-    return updated;
+    return _haversineKm(locA.coordinates, locB.coordinates);
   }
 
-  /// Deletes an instructor custom address document.
-  Future<void> deleteInstructorCustomAddress(String docId) =>
-      _repository.deleteInstructorCustomAddress(docId);
 
-  // ── Distance calculation ────────────────────────────────────────────────────
-
-  /// Computes the straight-line (Haversine) distance in **kilometres**
-  /// between a student's saved location and an instructor's default address.
-  ///
-  /// Returns `null` if either location is unavailable.
-  Future<double?> distanceToInstructor({
-    required String studentUserId,
-    required String instructorUserId,
-  }) async {
-    final studentLoc = await _repository.getStudentLocation(studentUserId);
-    final instructorLoc = await _repository.getInstructorDefaultLocation(
-      instructorUserId,
-    );
-
-    if (studentLoc == null || instructorLoc == null) return null;
-
-    return _haversineKm(studentLoc.coordinates, instructorLoc.coordinates);
-  }
-
-  /// Computes distance between two [LatLng] points using the Haversine formula.
   double _haversineKm(LatLng a, LatLng b) {
-    const double earthRadiusKm = 6371.0;
-    final dLat = _toRad(b.latitude - a.latitude);
-    final dLon = _toRad(b.longitude - a.longitude);
-    final sinDLat = math.sin(dLat / 2);
-    final sinDLon = math.sin(dLon / 2);
+    const r = 6371.0;
+    final dLat = _rad(b.latitude - a.latitude);
+    final dLon = _rad(b.longitude - a.longitude);
     final h =
-        sinDLat * sinDLat +
-        math.cos(_toRad(a.latitude)) *
-            math.cos(_toRad(b.latitude)) *
-            sinDLon *
-            sinDLon;
-    return 2 * earthRadiusKm * math.asin(math.sqrt(h));
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_rad(a.latitude)) *
+            math.cos(_rad(b.latitude)) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    return 2 * r * math.asin(math.sqrt(h));
   }
 
-  double _toRad(double deg) => deg * math.pi / 180;
-
-  // ── Streams (pass-through convenience) ─────────────────────────────────────
-
-  Stream<LocationModel?> watchStudentLocation(String userId) =>
-      _repository.watchStudentLocation(userId);
-
-  Stream<List<LocationModel>> watchInstructorLocations(String userId) =>
-      _repository.watchInstructorLocations(userId);
-
-  // ── Private ─────────────────────────────────────────────────────────────────
-
-  /// Parses a Nominatim response (both /reverse and /search) into [AddressComponents].
-  AddressComponents _parseNominatimAddress(Map<String, dynamic> body) {
-    final address = body['address'] as Map<String, dynamic>? ?? {};
-
-    final street = [
-      address['house_number']?.toString() ?? '',
-      address['road']?.toString() ?? '',
-    ].where((s) => s.isNotEmpty).join(' ');
-
-    final city =
-        (address['city'] ??
-                address['town'] ??
-                address['village'] ??
-                address['county'] ??
-                '')
-            .toString();
-
-    return AddressComponents(
-      street: street,
-      city: city,
-      state: address['state']?.toString() ?? '',
-      country: address['country']?.toString() ?? '',
-      postalCode: address['postcode']?.toString() ?? '',
-      formattedAddress: body['display_name']?.toString() ?? '',
-    );
-  }
-}
-
-// ── Typed exceptions ──────────────────────────────────────────────────────────
-
-class LocationPermissionException implements Exception {
-  LocationPermissionException(this.message);
-  final String message;
-  @override
-  String toString() => 'LocationPermissionException: $message';
-}
-
-class LocationServiceDisabledException implements Exception {
-  LocationServiceDisabledException(this.message);
-  final String message;
-  @override
-  String toString() => 'LocationServiceDisabledException: $message';
-}
-
-class GeocodingException implements Exception {
-  GeocodingException(this.message);
-  final String message;
-  @override
-  String toString() => 'GeocodingException: $message';
-}
-
-extension _IterableX<T> on Iterable<T> {
-  T? firstWhereOrNull(bool Function(T) test) {
-    for (final element in this) {
-      if (test(element)) return element;
-    }
-    return null;
-  }
+  double _rad(double deg) => deg * math.pi / 180;
 }

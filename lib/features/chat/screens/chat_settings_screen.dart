@@ -139,13 +139,6 @@ class ChatSettingsScreen extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context, ColorScheme cs, TextTheme tt) {
-    final otherUserId = _isGroup
-        ? ''
-        : conversation.participantIds.firstWhere(
-            (e) => e != currentUserId,
-            orElse: () => '',
-          );
-
     if (_isGroup) {
       return _GroupHeader(
         conversation: conversation,
@@ -153,6 +146,11 @@ class ChatSettingsScreen extends StatelessWidget {
         textTheme: tt,
       );
     }
+
+    final otherUserId = conversation.participantIds.firstWhere(
+      (e) => e != currentUserId,
+      orElse: () => '',
+    );
 
     return FutureBuilder<Map<String, dynamic>?>(
       future: chatRepository.getUserProfile(otherUserId),
@@ -188,9 +186,8 @@ class ChatSettingsScreen extends StatelessWidget {
                 children: [
                   Text(
                     displayName,
-                    style: tt.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: tt.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
                   ),
                   if (fullName.isNotEmpty)
                     Text(
@@ -228,7 +225,8 @@ class ChatSettingsScreen extends StatelessWidget {
     TextTheme tt,
   ) {
     return conversation.participantIds.map((userId) {
-      final username = conversation.participantUsernames[userId] ?? 'Unknown';
+      final username =
+          conversation.participantUsernames[userId] ?? 'Unknown';
       final isMe = userId == currentUserId;
       final isCreator = userId == conversation.createdBy;
 
@@ -292,9 +290,8 @@ class ChatSettingsScreen extends StatelessWidget {
                   children: [
                     Text(
                       isMe ? '$displayName (You)' : displayName,
-                      style: tt.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: tt.bodySmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     if (isCreator) ...[
                       const SizedBox(width: 6),
@@ -334,15 +331,20 @@ class ChatSettingsScreen extends StatelessWidget {
                 ),
                 trailing: (_isGroup && _isGroupAdmin && !isMe)
                     ? IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 18),
+                        icon: const Icon(
+                          Icons.remove_circle_outline,
+                          size: 18,
+                        ),
                         color: cs.error,
                         visualDensity: VisualDensity.compact,
                         onPressed: () => _confirmAction(
                           context,
                           title: 'Remove $displayName?',
-                          body: '$displayName will be removed from this group.',
+                          body:
+                              '$displayName will be removed from this group.',
                           confirmLabel: 'Remove',
-                          onConfirm: () => chatRepository.removeMemberFromGroup(
+                          onConfirm: () =>
+                              chatRepository.removeMemberFromGroup(
                             conversationId: conversation.id!,
                             userId: userId,
                           ),
@@ -469,26 +471,19 @@ class _RemoveFriendTileState extends State<_RemoveFriendTile> {
     );
     if (otherUserId.isEmpty) return;
 
-    final req = await widget.chatRepository.getRequestBetween(
-      widget.currentUserId,
-      otherUserId,
-    );
-    final reqReverse =
-        req ??
-        await widget.chatRepository.getRequestBetween(
-          otherUserId,
-          widget.currentUserId,
-        );
+    final results = await Future.wait([
+      widget.chatRepository.getRequestBetween(widget.currentUserId, otherUserId),
+      widget.chatRepository.getRequestBetween(otherUserId, widget.currentUserId),
+      widget.chatRepository.areFriends(widget.currentUserId, otherUserId),
+    ]);
 
-    final isFriend = await widget.chatRepository.areFriends(
-      widget.currentUserId,
-      otherUserId,
-    );
+    final req = results[0] as dynamic ?? results[1] as dynamic;
+    final isFriend = results[2] as bool;
 
     if (mounted) {
       setState(() {
         _isFriend = isFriend;
-        _requestId = reqReverse?.id;
+        _requestId = (req as dynamic)?.id as String?;
       });
     }
   }
@@ -581,7 +576,8 @@ class _GroupHeader extends StatelessWidget {
             children: [
               Text(
                 conversation.groupName ?? 'Group',
-                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style:
+                    tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               Text(
                 '${conversation.participantIds.length} members',
@@ -613,7 +609,6 @@ class _CompactTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
-
     return ListTile(
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),

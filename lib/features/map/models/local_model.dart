@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Represents a geographic coordinate pair.
 class LatLng {
   const LatLng({required this.latitude, required this.longitude});
 
@@ -17,7 +16,6 @@ class LatLng {
     'longitude': longitude,
   };
 
-  // Firestore GeoPoint interop
   factory LatLng.fromGeoPoint(GeoPoint geoPoint) =>
       LatLng(latitude: geoPoint.latitude, longitude: geoPoint.longitude);
 
@@ -27,7 +25,6 @@ class LatLng {
   String toString() => 'LatLng($latitude, $longitude)';
 }
 
-/// A parsed address returned from Google Maps Geocoding.
 class AddressComponents {
   const AddressComponents({
     required this.street,
@@ -81,14 +78,7 @@ class AddressComponents {
   );
 }
 
-/// The type of location entry.
-enum LocationType {
-  /// GPS-detected current position (both roles).
-  currentLocation,
-
-  /// Manually entered address (instructor only).
-  customAddress,
-}
+enum LocationType { currentLocation, customAddress }
 
 extension LocationTypeExtension on LocationType {
   String get value => switch (this) {
@@ -103,24 +93,20 @@ extension LocationTypeExtension on LocationType {
   };
 }
 
-/// Core location document stored in Firestore.
-///
-/// Students: only [currentLocation] type, [address] is derived via reverse-geocode.
-/// Instructors: either [currentLocation] OR [customAddress]; may store multiple.
 class LocationModel {
   const LocationModel({
     this.id,
     required this.userId,
-    required this.role, // 'student' | 'instructor'
+    required this.role,
     required this.type,
     required this.coordinates,
     required this.address,
-    this.label, // e.g. "Home", "Studio" — instructor custom addresses only
+    this.label,
     this.isDefault = false,
     required this.createdAt,
     required this.updatedAt,
-    this.accuracy, // metres, GPS fix quality
-    this.isVisible, // instructors can hide a saved address
+    this.accuracy,
+    this.isVisible,
   });
 
   final String? id;
@@ -135,8 +121,6 @@ class LocationModel {
   final DateTime updatedAt;
   final double? accuracy;
   final bool? isVisible;
-
-  // ── Firestore ────────────────────────────────────────────────────────────────
 
   factory LocationModel.fromSnapshot(DocumentSnapshot doc) {
     final map = doc.data() as Map<String, dynamic>;
@@ -171,7 +155,6 @@ class LocationModel {
     'user_id': userId,
     'role': role,
     'type': type.value,
-    // Store as Firestore GeoPoint for geospatial queries
     'coordinates': coordinates.toGeoPoint(),
     'address': address.toMap(),
     if (label != null) 'label': label,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +11,25 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/chat_message_model.dart';
+
+Map<String, dynamic>? _decodeJsonSync(String raw) {
+  try {
+    return jsonDecode(raw) as Map<String, dynamic>?;
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<List<Map<String, dynamic>>> _parseJsonListInIsolate(
+  List<String> raws,
+) async {
+  final out = <Map<String, dynamic>>[];
+  for (final raw in raws) {
+    final decoded = _decodeJsonSync(raw);
+    if (decoded != null) out.add(decoded);
+  }
+  return out;
+}
 
 class _LocalCache {
   _LocalCache._();
@@ -44,7 +64,7 @@ class _LocalCache {
           )
         ''');
         await db.execute(
-          'CREATE INDEX idx_msg_conv ON messages(conversation_id)',
+          'CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversation_id, sent_at)',
         );
         await db.execute('''
           CREATE TABLE presence (
@@ -84,13 +104,13 @@ class _LocalCache {
       'conversations',
       orderBy: 'updated_at DESC',
     );
-    return rows
-        .map((r) => _decodeJson(r['data'] as String))
-        .whereType<Map<String, dynamic>>()
-        .toList();
+    if (rows.isEmpty) return [];
+    final raws = rows.map((r) => r['data'] as String).toList();
+    return _parseJsonListInIsolate(raws);
   }
 
   Future<void> upsertMessages(List<ChatMessageModel> msgs) async {
+    if (msgs.isEmpty) return;
     final database = await db;
     final batch = database.batch();
     for (final msg in msgs) {
@@ -112,20 +132,14 @@ class _LocalCache {
       whereArgs: [conversationId],
       orderBy: 'sent_at ASC',
     );
-    return rows
-        .map((r) => _decodeJson(r['data'] as String))
-        .whereType<Map<String, dynamic>>()
-        .toList();
+    if (rows.isEmpty) return [];
+    final raws = rows.map((r) => r['data'] as String).toList();
+    return _parseJsonListInIsolate(raws);
   }
 
-  Future<void> deleteMessage(String messageId) async {
+  Future<void> softDeleteMessage(String messageId) async {
     final database = await db;
-    await database.update(
-      'messages',
-      {'data': '{}'},
-      where: 'id = ?',
-      whereArgs: [messageId],
-    );
+    await database.delete('messages', where: 'id = ?', whereArgs: [messageId]);
   }
 
   Future<void> upsertPresence(UserPresenceModel model) async {
@@ -145,58 +159,52 @@ class _LocalCache {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    final json = _decodeJson(rows.first['data'] as String);
+    final json = _decodeJsonSync(rows.first['data'] as String);
     if (json == null) return null;
     return _decodePresence(userId, json);
   }
 
-  String _encodeConversation(ConversationModel c) {
-    return _jsonEncode({
-      'id': c.id,
-      'type': c.type.name,
-      'participant_ids': c.participantIds,
-      'participant_usernames': c.participantUsernames,
-      'created_by': c.createdBy,
-      'created_at': c.createdAt.toIso8601String(),
-      'updated_at': c.updatedAt.toIso8601String(),
-      'last_message': c.lastMessage,
-      'last_message_at': c.lastMessageAt?.toIso8601String(),
-      'last_message_sender_id': c.lastMessageSenderId,
-      'group_name': c.groupName,
-      'group_photo': c.groupPhoto,
-      'unread_counts': c.unreadCounts,
-      'is_active': c.isActive,
-    });
-  }
+  String _encodeConversation(ConversationModel c) => jsonEncode({
+    'id': c.id,
+    'type': c.type.name,
+    'participant_ids': c.participantIds,
+    'participant_usernames': c.participantUsernames,
+    'created_by': c.createdBy,
+    'created_at': c.createdAt.toIso8601String(),
+    'updated_at': c.updatedAt.toIso8601String(),
+    'last_message': c.lastMessage,
+    'last_message_at': c.lastMessageAt?.toIso8601String(),
+    'last_message_sender_id': c.lastMessageSenderId,
+    'group_name': c.groupName,
+    'group_photo': c.groupPhoto,
+    'unread_counts': c.unreadCounts,
+    'is_active': c.isActive,
+  });
 
-  String _encodeMessage(ChatMessageModel m) {
-    return _jsonEncode({
-      'id': m.id,
-      'conversation_id': m.conversationId,
-      'sender_id': m.senderId,
-      'sender_username': m.senderUsername,
-      'content': m.content,
-      'type': m.type.name,
-      'status': m.status.name,
-      'sent_at': m.sentAt.toIso8601String(),
-      'read_by': m.readBy,
-      'delivered_to': m.deliveredTo,
-      'media_url': m.mediaUrl,
-      'media_thumbnail_url': m.mediaThumbnailUrl,
-      'media_duration_seconds': m.mediaDurationSeconds,
-      'media_file_name': m.mediaFileName,
-      'media_file_size': m.mediaFileSize,
-      'is_deleted': m.isDeleted,
-    });
-  }
+  String _encodeMessage(ChatMessageModel m) => jsonEncode({
+    'id': m.id,
+    'conversation_id': m.conversationId,
+    'sender_id': m.senderId,
+    'sender_username': m.senderUsername,
+    'content': m.content,
+    'type': m.type.name,
+    'status': m.status.name,
+    'sent_at': m.sentAt.toIso8601String(),
+    'read_by': m.readBy,
+    'delivered_to': m.deliveredTo,
+    'media_url': m.mediaUrl,
+    'media_thumbnail_url': m.mediaThumbnailUrl,
+    'media_duration_seconds': m.mediaDurationSeconds,
+    'media_file_name': m.mediaFileName,
+    'media_file_size': m.mediaFileSize,
+    'is_deleted': m.isDeleted,
+  });
 
-  String _encodePresence(UserPresenceModel p) {
-    return _jsonEncode({
-      'user_id': p.userId,
-      'is_online': p.isOnline,
-      'last_seen': p.lastSeen.toIso8601String(),
-    });
-  }
+  String _encodePresence(UserPresenceModel p) => jsonEncode({
+    'user_id': p.userId,
+    'is_online': p.isOnline,
+    'last_seen': p.lastSeen.toIso8601String(),
+  });
 
   UserPresenceModel _decodePresence(String userId, Map<String, dynamic> json) =>
       UserPresenceModel(
@@ -206,28 +214,58 @@ class _LocalCache {
             DateTime.tryParse(json['last_seen'] as String? ?? '') ??
             DateTime.now(),
       );
+}
 
-  String _jsonEncode(Map<String, dynamic> map) => jsonEncode(map);
+class _SerialQueue {
+  final _queues = <String, Future<void>>{};
 
-  Map<String, dynamic>? _decodeJson(String raw) {
-    try {
-      return jsonDecode(raw) as Map<String, dynamic>?;
-    } catch (_) {
-      return null;
+  final _inflight = <String, int>{};
+
+  static const int _maxConcurrent = 1;
+
+  bool isBusy(String conversationId) =>
+      (_inflight[conversationId] ?? 0) >= _maxConcurrent;
+
+  Future<T> enqueue<T>(String conversationId, Future<T> Function() task) {
+    if (isBusy(conversationId)) {
+      return Future.error(
+        BusyException('Please wait for the previous action to complete.'),
+      );
     }
+    _inflight[conversationId] = (_inflight[conversationId] ?? 0) + 1;
+    final prev = _queues[conversationId] ?? Future<void>.value();
+    final next = prev.then((_) => task());
+    _queues[conversationId] = next
+        .then((_) {})
+        .catchError((_) {})
+        .whenComplete(
+          () => _inflight[conversationId] =
+              ((_inflight[conversationId] ?? 1) - 1).clamp(0, 999),
+        );
+    return next;
   }
 }
 
-class _SendQueue {
-  final _queues = <String, Future<void>>{};
+class _LruCache<K, V> {
+  _LruCache(this.capacity);
 
-  Future<T> enqueue<T>(String conversationId, Future<T> Function() task) {
-    final prev = _queues[conversationId] ?? Future.value();
-    final next = prev.then((_) => task());
+  final int capacity;
+  final _map = LinkedHashMap<K, V>();
 
-    _queues[conversationId] = next.then((_) {}).catchError((_) {});
-    return next;
+  V? get(K key) {
+    if (!_map.containsKey(key)) return null;
+    final value = _map.remove(key)!;
+    _map[key] = value;
+    return value;
   }
+
+  void put(K key, V value) {
+    _map.remove(key);
+    if (_map.length >= capacity) _map.remove(_map.keys.first);
+    _map[key] = value;
+  }
+
+  bool containsKey(K key) => _map.containsKey(key);
 }
 
 class ChatRepository {
@@ -240,7 +278,8 @@ class ChatRepository {
   final FirebaseFirestore _firestore;
   final SupabaseStorageService _storageService;
   final _LocalCache _cache = _LocalCache.instance;
-  final _SendQueue _sendQueue = _SendQueue();
+  final _SerialQueue _sendQueue = _SerialQueue();
+  final _LruCache<String, Map<String, dynamic>> _profileCache = _LruCache(128);
 
   SupabaseClient get _supabase => Supabase.instance.client;
 
@@ -261,19 +300,28 @@ class ChatRepository {
 
   RealtimeChannel? _typingChannel;
 
+  bool isConversationBusy(String conversationId) =>
+      _sendQueue.isBusy(conversationId);
+
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     if (userId.isEmpty) return null;
+    if (_profileCache.containsKey(userId)) return _profileCache.get(userId);
     try {
       final snap = await _profiles.doc(userId).get();
-      if (snap.exists) return _flattenProfile(snap.id, snap.data()!);
-
+      if (snap.exists) {
+        final flat = _flattenProfile(snap.id, snap.data()!);
+        _profileCache.put(userId, flat);
+        return flat;
+      }
       final query = await _profiles
           .where('user_id', isEqualTo: userId)
           .limit(1)
           .get();
       if (query.docs.isEmpty) return null;
       final d = query.docs.first;
-      return _flattenProfile(d.id, d.data());
+      final flat = _flattenProfile(d.id, d.data());
+      _profileCache.put(userId, flat);
+      return flat;
     } catch (_) {
       return null;
     }
@@ -305,11 +353,12 @@ class ChatRepository {
         try {
           final cached = await _cache.loadConversations();
           if (cached.isNotEmpty && !controller.isClosed) {
-            final models = cached
-                .map(_conversationFromJson)
-                .whereType<ConversationModel>()
-                .toList();
-            controller.add(models);
+            controller.add(
+              cached
+                  .map(_conversationFromJson)
+                  .whereType<ConversationModel>()
+                  .toList(),
+            );
           }
         } catch (_) {}
 
@@ -333,29 +382,26 @@ class ChatRepository {
                       .map(ConversationModel.fromSnapshot)
                       .toList();
 
+                  // Sort: online-partner convs first, then by recency
                   list.sort((a, b) {
-                    final aHasOnline = a.participantIds.any(
+                    final aOnline = a.participantIds.any(
                       (id) => id != userId && onlineIds.contains(id),
                     );
-                    final bHasOnline = b.participantIds.any(
+                    final bOnline = b.participantIds.any(
                       (id) => id != userId && onlineIds.contains(id),
                     );
-                    if (aHasOnline && !bHasOnline) return -1;
-                    if (!aHasOnline && bHasOnline) return 1;
+                    if (aOnline != bOnline) return aOnline ? -1 : 1;
                     final aTime = a.lastMessageAt ?? a.createdAt;
                     final bTime = b.lastMessageAt ?? b.createdAt;
                     return bTime.compareTo(aTime);
                   });
 
                   _cache.upsertConversations(list);
-
                   return list;
                 })
                 .listen(controller.add, onError: controller.addError);
       },
-      onCancel: () {
-        firestoreSub?.cancel();
-      },
+      onCancel: () => firestoreSub?.cancel(),
     );
 
     return controller.stream;
@@ -373,9 +419,7 @@ class ChatRepository {
 
     for (final doc in snap.docs) {
       final ids = List<String>.from(doc.data()['participant_ids'] ?? []);
-      if (ids.contains(userIdB)) {
-        return ConversationModel.fromSnapshot(doc);
-      }
+      if (ids.contains(userIdB)) return ConversationModel.fromSnapshot(doc);
     }
     return null;
   }
@@ -450,7 +494,6 @@ class ChatRepository {
         for (final id in newMembers.keys) id: 0,
       },
     });
-
     final updated = await _conversations.doc(conversationId).get();
     if (updated.exists) {
       await _cache.upsertConversation(ConversationModel.fromSnapshot(updated));
@@ -512,7 +555,7 @@ class ChatRepository {
 
       final preview = _lastMessagePreview(type, content, mediaFileName);
 
-      final docData = <String, dynamic>{
+      final ref = await _messages(conversationId).add({
         'conversation_id': conversationId,
         'sender_id': senderId,
         'sender_username': senderUsername,
@@ -527,22 +570,21 @@ class ChatRepository {
         'media_duration_seconds': mediaDurationSeconds,
         'media_file_name': mediaFileName,
         'media_file_size': mediaFileSize,
-        'call_data': null,
         'is_deleted': false,
-      };
+      });
 
-      final ref = await _messages(conversationId).add(docData);
       final savedSnap = await ref.get();
       final saved = ChatMessageModel.fromMap(savedSnap.data()!, id: ref.id);
 
-      await _updateConversationOnNewMessage(
-        conversationId: conversationId,
-        senderId: senderId,
-        content: preview,
-        sentAt: saved.sentAt,
-      );
-
-      await _cache.upsertMessages([saved]);
+      await Future.wait([
+        _updateConversationOnNewMessage(
+          conversationId: conversationId,
+          senderId: senderId,
+          content: preview,
+          sentAt: saved.sentAt,
+        ),
+        _cache.upsertMessages([saved]),
+      ]);
 
       _broadcastNewMessage(conversationId, saved);
       return saved;
@@ -577,8 +619,9 @@ class ChatRepository {
     final snap = await _messages(conversationId)
         .where('sender_id', isEqualTo: senderId)
         .where('is_deleted', isEqualTo: false)
+        .count()
         .get();
-    return snap.size;
+    return snap.count ?? 0;
   }
 
   Future<void> _updateConversationOnNewMessage({
@@ -644,24 +687,27 @@ class ChatRepository {
     return controller.stream;
   }
 
-  Future<void> markAsRead(String conversationId, String userId) async {
-    await _conversations.doc(conversationId).update({
-      'unread_counts.$userId': 0,
-    });
 
+  Future<void> markAsRead(String conversationId, String userId) async {
     final snap = await _messages(
       conversationId,
     ).where('is_deleted', isEqualTo: false).get();
 
-    final batch = _firestore.batch();
+    final writeBatch = _firestore.batch();
+
+    writeBatch.update(_conversations.doc(conversationId), {
+      'unread_counts.$userId': 0,
+    });
+
     for (final doc in snap.docs) {
       final readBy = List<String>.from(doc.data()['read_by'] ?? []);
       if (!readBy.contains(userId)) {
         readBy.add(userId);
-        batch.update(doc.reference, {'read_by': readBy, 'status': 'read'});
+        writeBatch.update(doc.reference, {'read_by': readBy, 'status': 'read'});
       }
     }
-    await batch.commit();
+
+    await writeBatch.commit();
   }
 
   Future<void> deleteMessage(String conversationId, String messageId) async {
@@ -669,7 +715,7 @@ class ChatRepository {
       'is_deleted': true,
       'content': 'This message was deleted.',
     });
-    await _cache.deleteMessage(messageId);
+    await _cache.softDeleteMessage(messageId);
   }
 
   Future<String> uploadChatMedia({
@@ -706,7 +752,7 @@ class ChatRepository {
     return typingController.stream;
   }
 
-  Future<void> broadcastTyping(String conversationId, String username) async =>
+  Future<void> broadcastTyping(String conversationId, String username) =>
       _supabase
           .channel('typing:$conversationId')
           .sendBroadcastMessage(
@@ -741,7 +787,14 @@ class ChatRepository {
     required String toUserId,
     required String toUsername,
   }) async {
-    final existingAB = await _getAnyRequestBetween(fromUserId, toUserId);
+    final results = await Future.wait([
+      _getAnyRequestBetween(fromUserId, toUserId),
+      _getAnyRequestBetween(toUserId, fromUserId),
+    ]);
+
+    final existingAB = results[0];
+    final existingBA = results[1];
+
     if (existingAB != null) {
       if (existingAB.status == FriendRequestStatus.pending) {
         throw DuplicateFriendRequestException(
@@ -754,8 +807,6 @@ class ChatRepository {
         );
       }
     }
-
-    final existingBA = await _getAnyRequestBetween(toUserId, fromUserId);
     if (existingBA != null) {
       if (existingBA.status == FriendRequestStatus.pending) {
         throw DuplicateFriendRequestException(
@@ -833,21 +884,21 @@ class ChatRepository {
   }
 
   Future<bool> areFriends(String userIdA, String userIdB) async {
-    final ab = await _friendRequests
-        .where('from_user_id', isEqualTo: userIdA)
-        .where('to_user_id', isEqualTo: userIdB)
-        .where('status', isEqualTo: 'accepted')
-        .limit(1)
-        .get();
-    if (ab.docs.isNotEmpty) return true;
-
-    final ba = await _friendRequests
-        .where('from_user_id', isEqualTo: userIdB)
-        .where('to_user_id', isEqualTo: userIdA)
-        .where('status', isEqualTo: 'accepted')
-        .limit(1)
-        .get();
-    return ba.docs.isNotEmpty;
+    final results = await Future.wait([
+      _friendRequests
+          .where('from_user_id', isEqualTo: userIdA)
+          .where('to_user_id', isEqualTo: userIdB)
+          .where('status', isEqualTo: 'accepted')
+          .limit(1)
+          .get(),
+      _friendRequests
+          .where('from_user_id', isEqualTo: userIdB)
+          .where('to_user_id', isEqualTo: userIdA)
+          .where('status', isEqualTo: 'accepted')
+          .limit(1)
+          .get(),
+    ]);
+    return results[0].docs.isNotEmpty || results[1].docs.isNotEmpty;
   }
 
   Future<void> respondToFriendRequest(
@@ -872,22 +923,23 @@ class ChatRepository {
       _friendRequests.doc(requestId).delete();
 
   Future<List<Map<String, dynamic>>> getFriendsList(String userId) async {
-    final sentSnap = await _friendRequests
-        .where('from_user_id', isEqualTo: userId)
-        .where('status', isEqualTo: 'accepted')
-        .get();
-
-    final receivedSnap = await _friendRequests
-        .where('to_user_id', isEqualTo: userId)
-        .where('status', isEqualTo: 'accepted')
-        .get();
+    final results = await Future.wait([
+      _friendRequests
+          .where('from_user_id', isEqualTo: userId)
+          .where('status', isEqualTo: 'accepted')
+          .get(),
+      _friendRequests
+          .where('to_user_id', isEqualTo: userId)
+          .where('status', isEqualTo: 'accepted')
+          .get(),
+    ]);
 
     final friendRequestIds = <String, String>{};
-    for (final doc in sentSnap.docs) {
+    for (final doc in results[0].docs) {
       final fid = doc.data()['to_user_id'] as String? ?? '';
       if (fid.isNotEmpty) friendRequestIds[fid] = doc.id;
     }
-    for (final doc in receivedSnap.docs) {
+    for (final doc in results[1].docs) {
       final fid = doc.data()['from_user_id'] as String? ?? '';
       if (fid.isNotEmpty) friendRequestIds[fid] = doc.id;
     }
@@ -895,51 +947,59 @@ class ChatRepository {
     if (friendRequestIds.isEmpty) return [];
 
     final allFriendIds = friendRequestIds.keys.toList();
-    final results = <Map<String, dynamic>>[];
+    final out = <Map<String, dynamic>>[];
     final foundIds = <String>{};
 
-    for (var i = 0; i < allFriendIds.length; i += 30) {
-      final chunk = allFriendIds.sublist(
-        i,
-        (i + 30).clamp(0, allFriendIds.length),
-      );
+    Future<void> fetchChunk(List<String> chunk) async {
       final snap = await _profiles
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       for (final d in snap.docs) {
         final flat = _flattenProfile(d.id, d.data());
         final resolvedUid = flat['user_id'] as String;
-        foundIds.add(d.id);
-        foundIds.add(resolvedUid);
-        results.add({
-          ...flat,
-          'request_id':
-              friendRequestIds[d.id] ?? friendRequestIds[resolvedUid] ?? '',
-        });
+        if (foundIds.add(d.id)) {
+          foundIds.add(resolvedUid);
+          out.add({
+            ...flat,
+            'request_id':
+                friendRequestIds[d.id] ?? friendRequestIds[resolvedUid] ?? '',
+          });
+        }
       }
     }
+
+    final chunks = <List<String>>[];
+    for (var i = 0; i < allFriendIds.length; i += 30) {
+      chunks.add(
+        allFriendIds.sublist(i, (i + 30).clamp(0, allFriendIds.length)),
+      );
+    }
+    await Future.wait(chunks.map(fetchChunk));
 
     final missing = allFriendIds.where((id) => !foundIds.contains(id)).toList();
+    final missingChunks = <List<String>>[];
     for (var i = 0; i < missing.length; i += 10) {
-      final chunk = missing.sublist(i, (i + 10).clamp(0, missing.length));
-      final snap = await _profiles.where('user_id', whereIn: chunk).get();
-      for (final d in snap.docs) {
-        final flat = _flattenProfile(d.id, d.data());
-        final resolvedUid = flat['user_id'] as String;
-        if (foundIds.contains(resolvedUid) || foundIds.contains(d.id)) {
-          continue;
-        }
-        foundIds.add(resolvedUid);
-        foundIds.add(d.id);
-        results.add({
-          ...flat,
-          'request_id':
-              friendRequestIds[resolvedUid] ?? friendRequestIds[d.id] ?? '',
-        });
-      }
+      missingChunks.add(missing.sublist(i, (i + 10).clamp(0, missing.length)));
     }
+    await Future.wait(
+      missingChunks.map((chunk) async {
+        final snap = await _profiles.where('user_id', whereIn: chunk).get();
+        for (final d in snap.docs) {
+          final flat = _flattenProfile(d.id, d.data());
+          final resolvedUid = flat['user_id'] as String;
+          if (foundIds.add(resolvedUid)) {
+            foundIds.add(d.id);
+            out.add({
+              ...flat,
+              'request_id':
+                  friendRequestIds[resolvedUid] ?? friendRequestIds[d.id] ?? '',
+            });
+          }
+        }
+      }),
+    );
 
-    return results;
+    return out;
   }
 
   Future<List<Map<String, dynamic>>> getGroupMembers(
@@ -951,48 +1011,61 @@ class ChatRepository {
     final memberIds = conv.participantIds;
     if (memberIds.isEmpty) return [];
 
-    final results = <Map<String, dynamic>>[];
+    final out = <Map<String, dynamic>>[];
     final foundIds = <String>{};
 
+    final chunks = <List<String>>[];
     for (var i = 0; i < memberIds.length; i += 30) {
-      final chunk = memberIds.sublist(i, (i + 30).clamp(0, memberIds.length));
-      final profileSnap = await _profiles
-          .where(FieldPath.documentId, whereIn: chunk)
-          .get();
-      for (final d in profileSnap.docs) {
-        final flat = _flattenProfile(d.id, d.data());
-        final resolvedUid = flat['user_id'] as String;
-        foundIds.add(d.id);
-        foundIds.add(resolvedUid);
-        results.add({
-          ...flat,
-          'is_admin': conv.createdBy == resolvedUid || conv.createdBy == d.id,
-        });
-      }
+      chunks.add(memberIds.sublist(i, (i + 30).clamp(0, memberIds.length)));
     }
+
+    await Future.wait(
+      chunks.map((chunk) async {
+        final profileSnap = await _profiles
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+        for (final d in profileSnap.docs) {
+          final flat = _flattenProfile(d.id, d.data());
+          final resolvedUid = flat['user_id'] as String;
+          if (foundIds.add(d.id)) {
+            foundIds.add(resolvedUid);
+            out.add({
+              ...flat,
+              'is_admin':
+                  conv.createdBy == resolvedUid || conv.createdBy == d.id,
+            });
+          }
+        }
+      }),
+    );
 
     final missing = memberIds.where((id) => !foundIds.contains(id)).toList();
+    final missingChunks = <List<String>>[];
     for (var i = 0; i < missing.length; i += 10) {
-      final chunk = missing.sublist(i, (i + 10).clamp(0, missing.length));
-      final profileSnap = await _profiles
-          .where('user_id', whereIn: chunk)
-          .get();
-      for (final d in profileSnap.docs) {
-        final flat = _flattenProfile(d.id, d.data());
-        final resolvedUid = flat['user_id'] as String;
-        if (foundIds.contains(resolvedUid) || foundIds.contains(d.id)) {
-          continue;
-        }
-        foundIds.add(resolvedUid);
-        foundIds.add(d.id);
-        results.add({
-          ...flat,
-          'is_admin': conv.createdBy == resolvedUid || conv.createdBy == d.id,
-        });
-      }
+      missingChunks.add(missing.sublist(i, (i + 10).clamp(0, missing.length)));
     }
 
-    return results;
+    await Future.wait(
+      missingChunks.map((chunk) async {
+        final profileSnap = await _profiles
+            .where('user_id', whereIn: chunk)
+            .get();
+        for (final d in profileSnap.docs) {
+          final flat = _flattenProfile(d.id, d.data());
+          final resolvedUid = flat['user_id'] as String;
+          if (foundIds.add(resolvedUid)) {
+            foundIds.add(d.id);
+            out.add({
+              ...flat,
+              'is_admin':
+                  conv.createdBy == resolvedUid || conv.createdBy == d.id,
+            });
+          }
+        }
+      }),
+    );
+
+    return out;
   }
 
   Future<List<Map<String, dynamic>>> searchUsersByUsername(
@@ -1026,24 +1099,22 @@ class ChatRepository {
       onListen: () async {
         try {
           final cached = await _cache.loadPresence(userId);
-          if (cached != null && !controller.isClosed) {
-            controller.add(cached);
-          }
+          if (cached != null && !controller.isClosed) controller.add(cached);
         } catch (_) {}
 
         sub = _presence
             .doc(userId)
             .snapshots()
-            .map((snap) {
-              if (!snap.exists) {
-                return UserPresenceModel(
-                  userId: userId,
-                  isOnline: false,
-                  lastSeen: DateTime.now(),
-                );
-              }
-              return UserPresenceModel.fromSnapshot(snap);
-            })
+            .map(
+              (snap) => snap.exists
+                  ? UserPresenceModel.fromSnapshot(snap)
+                  : UserPresenceModel(
+                      userId: userId,
+                      isOnline: false,
+                      lastSeen: DateTime.now(),
+                    ),
+            )
+            .distinct()
             .listen((model) {
               _cache.upsertPresence(model);
               controller.add(model);
@@ -1088,7 +1159,7 @@ class ChatRepository {
       .where('is_active', isEqualTo: true)
       .snapshots()
       .map((snap) {
-        int total = 0;
+        var total = 0;
         for (final doc in snap.docs) {
           final counts = Map<String, dynamic>.from(
             doc.data()['unread_counts'] ?? {},
@@ -1148,15 +1219,13 @@ class Rx {
     late StreamController<R> controller;
     A? latestA;
     B? latestB;
-    bool hasA = false;
-    bool hasB = false;
+    var hasA = false;
+    var hasB = false;
     StreamSubscription<A>? subA;
     StreamSubscription<B>? subB;
 
     void emit() {
-      if (hasA && hasB) {
-        controller.add(combiner(latestA as A, latestB as B));
-      }
+      if (hasA && hasB) controller.add(combiner(latestA as A, latestB as B));
     }
 
     controller = StreamController<R>.broadcast(
@@ -1185,6 +1254,7 @@ class Rx {
 class MessageLimitException implements Exception {
   const MessageLimitException(this.message);
   final String message;
+
   @override
   String toString() => 'MessageLimitException: $message';
 }
@@ -1192,6 +1262,15 @@ class MessageLimitException implements Exception {
 class DuplicateFriendRequestException implements Exception {
   const DuplicateFriendRequestException(this.message);
   final String message;
+
   @override
   String toString() => 'DuplicateFriendRequestException: $message';
+}
+
+class BusyException implements Exception {
+  const BusyException(this.message);
+  final String message;
+
+  @override
+  String toString() => 'BusyException: $message';
 }

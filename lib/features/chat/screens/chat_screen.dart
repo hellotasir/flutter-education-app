@@ -48,37 +48,35 @@ class _ChatScreenState extends State<ChatScreen> {
   final _focusNode = FocusNode();
   final _picker = ImagePicker();
   final _recorder = AudioRecorder();
+
   String? _otherUserPhoto;
   bool _isProfileLoading = true;
-
   bool _isFriend = false;
   bool _isFriendLoaded = false;
   bool _friendRequestSent = false;
   int _myMessageCount = 0;
   String? _typingUser;
   Timer? _typingTimer;
+  Timer? _typingDebounce;
   bool _isSending = false;
   bool _isRecording = false;
   bool _isAttachMenuOpen = false;
+  bool _hasText = false;
 
-  /// Tracks which file message IDs are currently being downloaded.
   final Set<String> _downloadingFiles = {};
 
   late ConversationModel _conversation;
 
-  String get _otherUserId => _conversation.participantIds.firstWhere(
-    (id) => id != widget.currentUserId,
-    orElse: () => '',
-  );
+  late final String _otherUserId;
+  late final bool _isGroup;
 
   String get _otherUsername =>
       _conversation.participantUsernames[_otherUserId] ?? 'User';
 
-  String get _displayTitle => _conversation.type == ConversationType.group
+  String get _displayTitle =>
+      _isGroup
       ? (_conversation.groupName ?? 'Group')
       : _otherUsername;
-
-  bool get _isGroup => _conversation.type == ConversationType.group;
 
   bool get _limitReached =>
       !_isFriend && _isFriendLoaded && !_isGroup && _myMessageCount >= 3;
@@ -89,12 +87,17 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _conversation = widget.conversation;
+    _isGroup = _conversation.type == ConversationType.group;
+    _otherUserId = _isGroup
+        ? ''
+        : _conversation.participantIds.firstWhere(
+            (id) => id != widget.currentUserId,
+            orElse: () => '',
+          );
     _loadFriendStatus();
     _markRead();
     _listenTyping();
-    if (!_isGroup) {
-      _loadOtherUserProfile();
-    }
+    if (!_isGroup) _loadOtherUserProfile();
   }
 
   @override
@@ -103,6 +106,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.dispose();
     _focusNode.dispose();
     _typingTimer?.cancel();
+    _typingDebounce?.cancel();
     widget.chatRepository.disposeTypingChannel();
     _recorder.dispose();
     super.dispose();
@@ -110,22 +114,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadFriendStatus() async {
     if (_isGroup) {
-      setState(() {
-        _isFriend = true;
-        _isFriendLoaded = true;
-      });
+      if (mounted)
+        setState(() {
+          _isFriend = true;
+          _isFriendLoaded = true;
+        });
       return;
     }
     final result = await widget.chatRepository.areFriends(
       widget.currentUserId,
       _otherUserId,
     );
-    if (mounted) {
+    if (mounted)
       setState(() {
         _isFriend = result;
         _isFriendLoaded = true;
       });
-    }
   }
 
   Future<void> _markRead() async {
@@ -144,7 +148,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _isProfileLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) setState(() => _isProfileLoading = false);
     }
   }
@@ -152,7 +156,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _listenTyping() {
     widget.chatRepository.watchTypingUser(_conversation.id!).listen((username) {
       if (username != widget.currentUsername) {
-        setState(() => _typingUser = username);
+        if (mounted) setState(() => _typingUser = username);
         _typingTimer?.cancel();
         _typingTimer = Timer(const Duration(seconds: 3), () {
           if (mounted) setState(() => _typingUser = null);
@@ -162,19 +166,33 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _onTextChanged(String value) {
-    if (value.isNotEmpty) {
-      widget.chatRepository.broadcastTyping(
-        _conversation.id!,
-        widget.currentUsername,
-      );
+    final hasText = value.isNotEmpty;
+    if (hasText != _hasText) setState(() => _hasText = hasText);
+
+    if (hasText) {
+      _typingDebounce?.cancel();
+      _typingDebounce = Timer(const Duration(milliseconds: 300), () {
+        widget.chatRepository.broadcastTyping(
+          _conversation.id!,
+          widget.currentUsername,
+        );
+      });
     }
   }
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isSending) return;
+
+    if (widget.chatRepository.isConversationBusy(_conversation.id!)) {
+      _showSnack('Please wait for the previous message to send.');
+      return;
+    }
+
     setState(() => _isSending = true);
     _controller.clear();
+    _hasText = false;
+
     try {
       await widget.chatRepository.sendMessage(
         conversationId: _conversation.id!,
@@ -185,6 +203,8 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       _scrollToBottom();
     } on MessageLimitException catch (e) {
+      _showSnack(e.message);
+    } on BusyException catch (e) {
       _showSnack(e.message);
     } catch (_) {
       _showSnack('Failed to send message');
@@ -234,12 +254,12 @@ class _ChatScreenState extends State<ChatScreen> {
       const RecordConfig(encoder: AudioEncoder.aacLc),
       path: path,
     );
-    setState(() => _isRecording = true);
+    if (mounted) setState(() => _isRecording = true);
   }
 
   Future<void> _stopAndSendRecording() async {
     final path = await _recorder.stop();
-    setState(() => _isRecording = false);
+    if (mounted) setState(() => _isRecording = false);
     if (path == null) return;
     await _uploadAndSend(
       file: File(path),
@@ -251,7 +271,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _cancelRecording() async {
     await _recorder.cancel();
-    setState(() => _isRecording = false);
+    if (mounted) setState(() => _isRecording = false);
   }
 
   Future<void> _pickAndSendFile() async {
@@ -283,6 +303,10 @@ class _ChatScreenState extends State<ChatScreen> {
       _showSnack('Message limit reached');
       return;
     }
+    if (widget.chatRepository.isConversationBusy(_conversation.id!)) {
+      _showSnack('Please wait for the previous action to complete.');
+      return;
+    }
     setState(() => _isSending = true);
     try {
       final url = await widget.chatRepository.uploadChatMedia(
@@ -302,6 +326,8 @@ class _ChatScreenState extends State<ChatScreen> {
         isFriend: _isFriend,
       );
       _scrollToBottom();
+    } on BusyException catch (e) {
+      _showSnack(e.message);
     } catch (e) {
       _showSnack('Upload failed: $e');
     } finally {
@@ -309,11 +335,6 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  // ── File Download ──────────────────────────────────────────────────────────
-
-  /// Downloads a file from [url] and saves it to the device's Downloads folder
-  /// (Android) or Documents folder (iOS). Falls back to opening the URL in a
-  /// browser if the in-app download fails.
   Future<void> _downloadFile(ChatMessageModel msg) async {
     final url = msg.mediaUrl;
     if (url == null || url.isEmpty) {
@@ -322,54 +343,40 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     final messageId = msg.id ?? url;
-    if (_downloadingFiles.contains(messageId)) return; // already in progress
+    if (_downloadingFiles.contains(messageId)) return;
 
     setState(() => _downloadingFiles.add(messageId));
 
     try {
-      // ── 1. Request storage permission (Android only) ───────────────────────
       if (Platform.isAndroid) {
         final status = await Permission.storage.request();
-        if (!status.isGranted) {
-          // Android 13+ uses granular media permissions; storage may not be
-          // needed, so only bail out if truly denied (not just restricted).
-          if (status.isPermanentlyDenied) {
-            _showSnack('Storage permission denied — enable it in Settings');
-            return;
-          }
+        if (status.isPermanentlyDenied) {
+          _showSnack('Storage permission denied — enable it in Settings');
+          return;
         }
       }
 
-      // ── 2. Resolve save directory ──────────────────────────────────────────
       final Directory saveDir;
       if (Platform.isAndroid) {
-        // Prefer the public Downloads folder on Android.
         saveDir = Directory('/storage/emulated/0/Download');
-        if (!await saveDir.exists()) {
-          saveDir.createSync(recursive: true);
-        }
+        if (!await saveDir.exists()) saveDir.createSync(recursive: true);
       } else {
-        // iOS: use app's Documents directory (accessible via Files app).
         saveDir = await getApplicationDocumentsDirectory();
       }
 
-      // ── 3. Build a unique file name ────────────────────────────────────────
       final rawName =
           msg.mediaFileName ??
           Uri.parse(url).pathSegments.last.split('?').first;
       final safeName = rawName.isNotEmpty ? rawName : 'download';
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final savePath = '${saveDir.path}/${timestamp}_$safeName';
+      final savePath =
+          '${saveDir.path}/${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
-      // ── 4. Download bytes ──────────────────────────────────────────────────
       final response = await http.get(Uri.parse(url));
       if (response.statusCode != 200) {
         throw Exception('Server returned ${response.statusCode}');
       }
 
-      // ── 5. Write to disk ───────────────────────────────────────────────────
-      final outFile = File(savePath);
-      await outFile.writeAsBytes(response.bodyBytes, flush: true);
+      await File(savePath).writeAsBytes(response.bodyBytes, flush: true);
 
       if (mounted) {
         _showSnack(
@@ -380,7 +387,6 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       debugPrint('[Download] Error: $e');
-      // ── 6. Fallback: open in browser ────────────────────────────────────
       final uri = Uri.tryParse(url);
       if (uri != null && await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -399,16 +405,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future<void> _sendFriendRequest() async {
-    await widget.chatRepository.sendFriendRequest(
-      fromUserId: widget.currentUserId,
-      fromUsername: widget.currentUsername,
-      fromProfilePhoto: widget.currentProfilePhoto,
-      toUserId: _otherUserId,
-      toUsername: _otherUsername,
-    );
-    if (mounted) setState(() => _friendRequestSent = true);
-  }
 
   Future<void> _confirmDelete(ChatMessageModel msg) async {
     final cs = Theme.of(context).colorScheme;
@@ -471,7 +467,9 @@ class _ChatScreenState extends State<ChatScreen> {
           final updated = convSnap.data!
               .where((c) => c.id == _conversation.id)
               .firstOrNull;
-          if (updated != null) _conversation = updated;
+          if (updated != null && updated != _conversation) {
+            _conversation = updated;
+          }
         }
 
         return GestureDetector(
@@ -485,7 +483,7 @@ class _ChatScreenState extends State<ChatScreen> {
             body: Column(
               children: [
                 if (!_isFriend && _isFriendLoaded && !_isGroup)
-                  _buildNonFriendBanner(cs, tt),
+                  RepaintBoundary(child: _buildNonFriendBanner(cs, tt)),
                 Expanded(
                   child: StreamBuilder<List<ChatMessageModel>>(
                     stream: widget.chatRepository.watchMessages(
@@ -528,6 +526,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           vertical: 16,
                         ),
                         itemCount: messages.length,
+                        // addAutomaticKeepAlives off for perf on large lists
+                        addAutomaticKeepAlives: false,
+                        addRepaintBoundaries: true,
                         itemBuilder: (context, i) {
                           final msg = messages[i];
                           final isMe = msg.senderId == widget.currentUserId;
@@ -543,26 +544,33 @@ class _ChatScreenState extends State<ChatScreen> {
                               i == messages.length - 1 ||
                               messages[i + 1].senderId != msg.senderId;
 
-                          return _buildBubble(
-                            context,
+                          return _ChatBubble(
+                            key: ValueKey(msg.id),
                             msg: msg,
                             isMe: isMe,
                             isFirst: isFirst,
                             isLast: isLast,
                             showSenderLabel: showSenderLabel,
+                            isGroup: _isGroup,
                             cs: cs,
                             tt: tt,
+                            downloadingFiles: _downloadingFiles,
+                            onDelete: () => _confirmDelete(msg),
+                            onDownload: () => _downloadFile(msg),
+                            onTapSender: () => _openUserProfile(msg.senderId),
                           );
                         },
                       );
                     },
                   ),
                 ),
-                if (_typingUser != null) _buildTypingIndicator(cs, tt),
+                if (_typingUser != null)
+                  RepaintBoundary(child: _buildTypingIndicator(cs, tt)),
                 if (!_isFriend && _isFriendLoaded && !_isGroup)
-                  _buildLimitBar(cs, tt),
-                if (_isAttachMenuOpen) _buildAttachMenu(cs, tt),
-                _buildInputBar(context, cs, tt),
+                  RepaintBoundary(child: _buildLimitBar(cs, tt)),
+                if (_isAttachMenuOpen)
+                  RepaintBoundary(child: _buildAttachMenu(cs, tt)),
+                RepaintBoundary(child: _buildInputBar(context, cs, tt)),
               ],
             ),
           ),
@@ -620,7 +628,6 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context, snap) {
         final presence = snap.data;
         final isOnline = presence?.isOnline ?? false;
-
         return Row(
           children: [
             GestureDetector(
@@ -631,16 +638,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     radius: 20,
                     backgroundColor: cs.primaryContainer,
                     backgroundImage:
-                        (_otherUserPhoto != null && _otherUserPhoto!.isNotEmpty)
+                        (_otherUserPhoto?.isNotEmpty ?? false)
                         ? NetworkImage(_otherUserPhoto!)
                         : null,
                     onBackgroundImageError:
-                        (_otherUserPhoto != null && _otherUserPhoto!.isNotEmpty)
-                        ? (_, __) {
-                            setState(() => _otherUserPhoto = null);
-                          }
+                        (_otherUserPhoto?.isNotEmpty ?? false)
+                        ? (_, __) => setState(() => _otherUserPhoto = null)
                         : null,
-                    child: (_otherUserPhoto == null || _otherUserPhoto!.isEmpty)
+                    child: (_otherUserPhoto?.isEmpty ?? true)
                         ? Text(
                             _otherUsername.isNotEmpty
                                 ? _otherUsername[0].toUpperCase()
@@ -708,7 +713,6 @@ class _ChatScreenState extends State<ChatScreen> {
         final presence = snap.data ?? {};
         final onlineCount = presence.values.where((p) => p.isOnline).length;
         final total = _conversation.participantIds.length;
-
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -725,317 +729,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildBubble(
-    BuildContext context, {
-    required ChatMessageModel msg,
-    required bool isMe,
-    required bool isFirst,
-    required bool isLast,
-    required bool showSenderLabel,
-    required ColorScheme cs,
-    required TextTheme tt,
-  }) {
-    final isDeleted = msg.isDeleted;
-    final isMedia =
-        msg.type == MessageType.image ||
-        msg.type == MessageType.video ||
-        msg.type == MessageType.audio;
-
-    final bubbleColor = isDeleted
-        ? cs.surfaceContainerLowest
-        : isMe
-        ? cs.primary
-        : cs.surfaceContainerHigh;
-
-    final textColor = isDeleted
-        ? cs.onSurface.withOpacity(0.3)
-        : isMe
-        ? cs.onPrimary
-        : cs.onSurface;
-
-    const r = Radius.circular(22);
-    const rSmall = Radius.circular(6);
-
-    final borderRadius = BorderRadius.only(
-      topLeft: (!isMe && !isFirst) ? rSmall : r,
-      topRight: (isMe && !isFirst) ? rSmall : r,
-      bottomLeft: isMe ? r : (isLast ? r : rSmall),
-      bottomRight: isMe ? (isLast ? r : rSmall) : r,
-    );
-
-    return Padding(
-      padding: EdgeInsets.only(top: isFirst ? 8 : 2, bottom: isLast ? 4 : 1),
-      child: Row(
-        mainAxisAlignment: isMe
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isMe && _isGroup) ...[
-            if (isLast)
-              GestureDetector(
-                onTap: () => _openUserProfile(msg.senderId),
-                child: CircleAvatar(
-                  radius: 14,
-                  backgroundColor: cs.primaryContainer,
-                  child: Text(
-                    msg.senderUsername.isNotEmpty
-                        ? msg.senderUsername[0].toUpperCase()
-                        : '?',
-                    style: tt.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: cs.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-              )
-            else
-              const SizedBox(width: 28),
-            const SizedBox(width: 6),
-          ],
-          Flexible(
-            child: GestureDetector(
-              onLongPress: isMe && !isDeleted
-                  ? () => _confirmDelete(msg)
-                  : null,
-              child: Container(
-                margin: EdgeInsets.only(
-                  left: isMe ? 72 : 0,
-                  right: isMe ? 0 : 72,
-                ),
-                padding: isMedia
-                    ? EdgeInsets.zero
-                    : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: isMedia
-                    ? null
-                    : BoxDecoration(
-                        color: bubbleColor,
-                        borderRadius: borderRadius,
-                      ),
-                child: ClipRRect(
-                  borderRadius: isMedia ? borderRadius : BorderRadius.zero,
-                  child: Column(
-                    crossAxisAlignment: isMe
-                        ? CrossAxisAlignment.end
-                        : CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showSenderLabel && !isMedia)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: GestureDetector(
-                            onTap: () => _openUserProfile(msg.senderId),
-                            child: Text(
-                              msg.senderUsername,
-                              style: tt.labelSmall?.copyWith(
-                                color: cs.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      _buildMessageContent(
-                        msg,
-                        isMe,
-                        isDeleted,
-                        cs,
-                        tt,
-                        textColor,
-                        bubbleColor,
-                        borderRadius,
-                      ),
-                      if (!isMedia)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 3),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                _formatTime(msg.sentAt),
-                                style: tt.labelSmall?.copyWith(
-                                  fontSize: 10,
-                                  color: isMe
-                                      ? cs.onPrimary.withOpacity(0.55)
-                                      : cs.onSurface.withOpacity(0.35),
-                                ),
-                              ),
-                              if (isMe) ...[
-                                const SizedBox(width: 3),
-                                _buildStatusIcon(msg.status, cs),
-                              ],
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMessageContent(
-    ChatMessageModel msg,
-    bool isMe,
-    bool isDeleted,
-    ColorScheme cs,
-    TextTheme tt,
-    Color textColor,
-    Color bubbleColor,
-    BorderRadius borderRadius,
-  ) {
-    if (isDeleted) {
-      return Text(
-        msg.content,
-        style: tt.bodyMedium?.copyWith(
-          color: textColor,
-          fontStyle: FontStyle.italic,
-        ),
-      );
-    }
-
-    switch (msg.type) {
-      case MessageType.image:
-        return ImageMessageBubble(message: msg, isMe: isMe);
-
-      case MessageType.audio:
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: bubbleColor,
-            borderRadius: borderRadius,
-          ),
-          child: AudioMessageBubble(message: msg, isMe: isMe),
-        );
-
-      case MessageType.video:
-        return VideoMessageBubble(message: msg, isMe: isMe);
-
-      case MessageType.file:
-        return _buildFileMessage(msg, isMe, cs, tt, bubbleColor, borderRadius);
-
-      default:
-        return Text(
-          msg.content,
-          style: tt.bodyMedium?.copyWith(color: textColor),
-        );
-    }
-  }
-
-  /// Renders a tappable file bubble. Tapping triggers [_downloadFile].
-  Widget _buildFileMessage(
-    ChatMessageModel msg,
-    bool isMe,
-    ColorScheme cs,
-    TextTheme tt,
-    Color bubbleColor,
-    BorderRadius borderRadius,
-  ) {
-    final name = msg.mediaFileName ?? 'File';
-    final ext = name.contains('.')
-        ? name.split('.').last.toUpperCase()
-        : 'FILE';
-    final size = msg.mediaFileSize != null
-        ? _formatFileSize(msg.mediaFileSize!)
-        : '';
-
-    final messageId = msg.id ?? (msg.mediaUrl ?? '');
-    final isDownloading = _downloadingFiles.contains(messageId);
-    final hasUrl = msg.mediaUrl != null && msg.mediaUrl!.isNotEmpty;
-
-    return GestureDetector(
-      onTap: hasUrl && !isDownloading ? () => _downloadFile(msg) : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: bubbleColor,
-          borderRadius: borderRadius,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── File type icon ─────────────────────────────────────────────
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isMe
-                    ? Colors.white.withOpacity(0.18)
-                    : cs.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Center(
-                child: Text(
-                  ext,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    color: isMe ? Colors.white : cs.onPrimaryContainer,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-
-            // ── File name + size ───────────────────────────────────────────
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: tt.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isMe ? cs.onPrimary : cs.onSurface,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (size.isNotEmpty)
-                    Text(
-                      size,
-                      style: tt.labelSmall?.copyWith(
-                        color: isMe
-                            ? cs.onPrimary.withOpacity(0.6)
-                            : cs.onSurfaceVariant,
-                        fontSize: 10,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-
-            // ── Download button / progress ─────────────────────────────────
-            if (hasUrl)
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: isDownloading
-                    ? Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: isMe ? cs.onPrimary : cs.primary,
-                        ),
-                      )
-                    : Icon(
-                        Icons.download_rounded,
-                        size: 22,
-                        color: isMe
-                            ? cs.onPrimary.withOpacity(0.8)
-                            : cs.primary,
-                      ),
-              ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1145,10 +838,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         controller: _controller,
                         focusNode: _focusNode,
                         enabled: !_limitReached,
-                        onChanged: (v) {
-                          setState(() {});
-                          _onTextChanged(v);
-                        },
+                        onChanged: _onTextChanged,
                         maxLines: 5,
                         minLines: 1,
                         textCapitalization: TextCapitalization.sentences,
@@ -1211,9 +901,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildSendOrMicButton(ColorScheme cs, Color fieldColor) {
-    final hasText = _controller.text.trim().isNotEmpty;
-
-    if (hasText || _isSending) {
+    if (_hasText || _isSending) {
       return GestureDetector(
         onTap: (_limitReached || _isSending) ? null : _sendMessage,
         child: Container(
@@ -1295,24 +983,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          if (!_friendRequestSent) ...[
-            const SizedBox(width: 8),
-            FilledButton.tonal(
-              onPressed: _sendFriendRequest,
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(0, 34),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 0,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text('Add Friend'),
-            ),
-          ],
+        
         ],
       ),
     );
@@ -1406,8 +1077,384 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+}
 
-  Widget _buildStatusIcon(MessageStatus status, ColorScheme cs) {
+// ---------------------------------------------------------------------------
+// Chat bubble extracted as StatelessWidget so ListView can skip rebuilds
+// ---------------------------------------------------------------------------
+
+class _ChatBubble extends StatelessWidget {
+  const _ChatBubble({
+    super.key,
+    required this.msg,
+    required this.isMe,
+    required this.isFirst,
+    required this.isLast,
+    required this.showSenderLabel,
+    required this.isGroup,
+    required this.cs,
+    required this.tt,
+    required this.downloadingFiles,
+    required this.onDelete,
+    required this.onDownload,
+    required this.onTapSender,
+  });
+
+  final ChatMessageModel msg;
+  final bool isMe;
+  final bool isFirst;
+  final bool isLast;
+  final bool showSenderLabel;
+  final bool isGroup;
+  final ColorScheme cs;
+  final TextTheme tt;
+  final Set<String> downloadingFiles;
+  final VoidCallback onDelete;
+  final VoidCallback onDownload;
+  final VoidCallback onTapSender;
+
+  static const _r = Radius.circular(22);
+  static const _rSmall = Radius.circular(6);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDeleted = msg.isDeleted;
+    final isMedia =
+        msg.type == MessageType.image ||
+        msg.type == MessageType.video ||
+        msg.type == MessageType.audio;
+
+    final bubbleColor = isDeleted
+        ? cs.surfaceContainerLowest
+        : isMe
+        ? cs.primary
+        : cs.surfaceContainerHigh;
+
+    final textColor = isDeleted
+        ? cs.onSurface.withOpacity(0.3)
+        : isMe
+        ? cs.onPrimary
+        : cs.onSurface;
+
+    final borderRadius = BorderRadius.only(
+      topLeft: (!isMe && !isFirst) ? _rSmall : _r,
+      topRight: (isMe && !isFirst) ? _rSmall : _r,
+      bottomLeft: isMe ? _r : (isLast ? _r : _rSmall),
+      bottomRight: isMe ? (isLast ? _r : _rSmall) : _r,
+    );
+
+    return Padding(
+      padding: EdgeInsets.only(top: isFirst ? 8 : 2, bottom: isLast ? 4 : 1),
+      child: Row(
+        mainAxisAlignment: isMe
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe && isGroup) ...[
+            if (isLast)
+              GestureDetector(
+                onTap: onTapSender,
+                child: CircleAvatar(
+                  radius: 14,
+                  backgroundColor: cs.primaryContainer,
+                  child: Text(
+                    msg.senderUsername.isNotEmpty
+                        ? msg.senderUsername[0].toUpperCase()
+                        : '?',
+                    style: tt.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 28),
+            const SizedBox(width: 6),
+          ],
+          Flexible(
+            child: GestureDetector(
+              onLongPress: isMe && !isDeleted ? onDelete : null,
+              child: Container(
+                margin: EdgeInsets.only(
+                  left: isMe ? 72 : 0,
+                  right: isMe ? 0 : 72,
+                ),
+                padding: isMedia
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: isMedia
+                    ? null
+                    : BoxDecoration(
+                        color: bubbleColor,
+                        borderRadius: borderRadius,
+                      ),
+                child: ClipRRect(
+                  borderRadius: isMedia ? borderRadius : BorderRadius.zero,
+                  child: Column(
+                    crossAxisAlignment: isMe
+                        ? CrossAxisAlignment.end
+                        : CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (showSenderLabel && !isMedia)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: GestureDetector(
+                            onTap: onTapSender,
+                            child: Text(
+                              msg.senderUsername,
+                              style: tt.labelSmall?.copyWith(
+                                color: cs.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      _buildContent(
+                        isDeleted,
+                        isMedia,
+                        isMe,
+                        bubbleColor,
+                        borderRadius,
+                        textColor,
+                      ),
+                      if (!isMedia)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _formatTime(msg.sentAt),
+                                style: tt.labelSmall?.copyWith(
+                                  fontSize: 10,
+                                  color: isMe
+                                      ? cs.onPrimary.withOpacity(0.55)
+                                      : cs.onSurface.withOpacity(0.35),
+                                ),
+                              ),
+                              if (isMe) ...[
+                                const SizedBox(width: 3),
+                                _StatusIcon(status: msg.status, cs: cs),
+                              ],
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    bool isDeleted,
+    bool isMedia,
+    bool isMe,
+    Color bubbleColor,
+    BorderRadius borderRadius,
+    Color textColor,
+  ) {
+    if (isDeleted) {
+      return Text(
+        msg.content,
+        style: tt.bodyMedium?.copyWith(
+          color: textColor,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    }
+
+    switch (msg.type) {
+      case MessageType.image:
+        return ImageMessageBubble(message: msg, isMe: isMe);
+
+      case MessageType.audio:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: borderRadius,
+          ),
+          child: AudioMessageBubble(message: msg, isMe: isMe),
+        );
+
+      case MessageType.video:
+        return VideoMessageBubble(message: msg, isMe: isMe);
+
+      case MessageType.file:
+        return _FileMessageContent(
+          msg: msg,
+          isMe: isMe,
+          cs: cs,
+          tt: tt,
+          bubbleColor: bubbleColor,
+          borderRadius: borderRadius,
+          isDownloading: downloadingFiles.contains(
+            msg.id ?? msg.mediaUrl ?? '',
+          ),
+          onDownload: onDownload,
+        );
+
+      default:
+        return Text(
+          msg.content,
+          style: tt.bodyMedium?.copyWith(color: textColor),
+        );
+    }
+  }
+
+  String _formatTime(DateTime dt) {
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+}
+
+class _FileMessageContent extends StatelessWidget {
+  const _FileMessageContent({
+    required this.msg,
+    required this.isMe,
+    required this.cs,
+    required this.tt,
+    required this.bubbleColor,
+    required this.borderRadius,
+    required this.isDownloading,
+    required this.onDownload,
+  });
+
+  final ChatMessageModel msg;
+  final bool isMe;
+  final ColorScheme cs;
+  final TextTheme tt;
+  final Color bubbleColor;
+  final BorderRadius borderRadius;
+  final bool isDownloading;
+  final VoidCallback onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = msg.mediaFileName ?? 'File';
+    final ext = name.contains('.')
+        ? name.split('.').last.toUpperCase()
+        : 'FILE';
+    final size = msg.mediaFileSize != null
+        ? _formatFileSize(msg.mediaFileSize!)
+        : '';
+    final hasUrl = msg.mediaUrl?.isNotEmpty ?? false;
+
+    return GestureDetector(
+      onTap: hasUrl && !isDownloading ? onDownload : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: bubbleColor,
+          borderRadius: borderRadius,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isMe
+                    ? Colors.white.withOpacity(0.18)
+                    : cs.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  ext,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: isMe ? Colors.white : cs.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: tt.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isMe ? cs.onPrimary : cs.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (size.isNotEmpty)
+                    Text(
+                      size,
+                      style: tt.labelSmall?.copyWith(
+                        color: isMe
+                            ? cs.onPrimary.withOpacity(0.6)
+                            : cs.onSurfaceVariant,
+                        fontSize: 10,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            if (hasUrl)
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: isDownloading
+                    ? Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: isMe ? cs.onPrimary : cs.primary,
+                        ),
+                      )
+                    : Icon(
+                        Icons.download_rounded,
+                        size: 22,
+                        color: isMe
+                            ? cs.onPrimary.withOpacity(0.8)
+                            : cs.primary,
+                      ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Status icon – const-friendly stateless widget
+// ---------------------------------------------------------------------------
+
+class _StatusIcon extends StatelessWidget {
+  const _StatusIcon({required this.status, required this.cs});
+
+  final MessageStatus status;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
     final color = cs.onPrimary.withOpacity(0.55);
     switch (status) {
       case MessageStatus.sending:
@@ -1426,21 +1473,11 @@ class _ChatScreenState extends State<ChatScreen> {
         return Icon(Icons.error_outline_rounded, size: 12, color: cs.error);
     }
   }
-
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '${bytes}B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
-  }
 }
 
-// ─── Reusable small widgets ───────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
+// Reusable small widgets
+// ---------------------------------------------------------------------------
 
 class _AppBarIconButton extends StatelessWidget {
   const _AppBarIconButton({
@@ -1534,24 +1571,22 @@ class _TypingDotsState extends State<_TypingDots>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (i) {
-            final offset = ((_ctrl.value * 3) - i).clamp(0.0, 1.0);
-            final bounce = offset < 0.5 ? offset * 2 : (1 - offset) * 2;
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              width: 5,
-              height: 5 + (bounce * 3),
-              decoration: BoxDecoration(
-                color: widget.color,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            );
-          }),
-        );
-      },
+      builder: (_, __) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(3, (i) {
+          final offset = ((_ctrl.value * 3) - i).clamp(0.0, 1.0);
+          final bounce = offset < 0.5 ? offset * 2 : (1 - offset) * 2;
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1.5),
+            width: 5,
+            height: 5 + (bounce * 3),
+            decoration: BoxDecoration(
+              color: widget.color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          );
+        }),
+      ),
     );
   }
 }

@@ -11,7 +11,7 @@ class UserPresenceModel {
   final bool isOnline;
   final DateTime lastSeen;
 
-  factory UserPresenceModel.fromSnapshot(
+  static UserPresenceModel fromSnapshot(
     DocumentSnapshot<Map<String, dynamic>> snap,
   ) {
     final data = snap.data() ?? {};
@@ -26,4 +26,14 @@ class UserPresenceModel {
     'is_online': isOnline,
     'last_seen': Timestamp.fromDate(lastSeen),
   };
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UserPresenceModel &&
+          userId == other.userId &&
+          isOnline == other.isOnline;
+
+  @override
+  int get hashCode => Object.hash(userId, isOnline);
 }

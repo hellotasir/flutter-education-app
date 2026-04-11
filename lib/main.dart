@@ -34,17 +34,6 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   @override
-  void initState() {
-    super.initState();
-    _registerToken();
-  }
-
-  Future<void> _registerToken() async {
-    final currentUser = Supabase.instance.client.auth.currentUser;
-    if (currentUser == null) return;
-  }
-
-  @override
   Widget build(BuildContext context) {
     return MaterialWidget(child: SplashScreen());
   }

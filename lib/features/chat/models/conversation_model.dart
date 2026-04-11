@@ -34,7 +34,7 @@ class ConversationModel {
   final Map<String, int> unreadCounts;
   final bool isActive;
 
-  factory ConversationModel.fromSnapshot(
+  static ConversationModel fromSnapshot(
     DocumentSnapshot<Map<String, dynamic>> snap,
   ) {
     final data = snap.data()!;
@@ -71,9 +71,8 @@ class ConversationModel {
     'group_name': groupName,
     'group_photo': groupPhoto,
     'last_message': lastMessage,
-    'last_message_at': lastMessageAt != null
-        ? Timestamp.fromDate(lastMessageAt!)
-        : null,
+    'last_message_at':
+        lastMessageAt != null ? Timestamp.fromDate(lastMessageAt!) : null,
     'last_message_sender_id': lastMessageSenderId,
     'unread_counts': unreadCounts,
     'is_active': isActive,
@@ -88,20 +87,34 @@ class ConversationModel {
     DateTime? updatedAt,
     List<String>? participantIds,
     Map<String, String>? participantUsernames,
-  }) => ConversationModel(
-    id: id ?? this.id,
-    type: type,
-    participantIds: participantIds ?? this.participantIds,
-    participantUsernames: participantUsernames ?? this.participantUsernames,
-    createdBy: createdBy,
-    createdAt: createdAt,
-    updatedAt: updatedAt ?? this.updatedAt,
-    groupName: groupName,
-    groupPhoto: groupPhoto,
-    lastMessage: lastMessage ?? this.lastMessage,
-    lastMessageAt: lastMessageAt ?? this.lastMessageAt,
-    lastMessageSenderId: lastMessageSenderId ?? this.lastMessageSenderId,
-    unreadCounts: unreadCounts ?? this.unreadCounts,
-    isActive: isActive,
-  );
+  }) =>
+      ConversationModel(
+        id: id ?? this.id,
+        type: type,
+        participantIds: participantIds ?? this.participantIds,
+        participantUsernames: participantUsernames ?? this.participantUsernames,
+        createdBy: createdBy,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        groupName: groupName,
+        groupPhoto: groupPhoto,
+        lastMessage: lastMessage ?? this.lastMessage,
+        lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+        lastMessageSenderId: lastMessageSenderId ?? this.lastMessageSenderId,
+        unreadCounts: unreadCounts ?? this.unreadCounts,
+        isActive: isActive,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ConversationModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          updatedAt == other.updatedAt &&
+          lastMessage == other.lastMessage &&
+          unreadCounts == other.unreadCounts;
+
+  @override
+  int get hashCode => Object.hash(id, updatedAt, lastMessage);
 }

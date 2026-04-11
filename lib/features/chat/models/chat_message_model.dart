@@ -50,10 +50,9 @@ class ChatMessageModel {
   int get sortKey =>
       sentAt.microsecondsSinceEpoch * 1000 + (sentAtNanos % 1000);
 
-  factory ChatMessageModel.fromMap(Map<String, dynamic> data, {String? id}) {
+  static ChatMessageModel fromMap(Map<String, dynamic> data, {String? id}) {
     DateTime parsedSentAt;
     int nanos = 0;
-
     final raw = data['sent_at'];
     if (raw is Timestamp) {
       parsedSentAt = raw.toDate();
@@ -61,7 +60,6 @@ class ChatMessageModel {
     } else {
       parsedSentAt = DateTime.tryParse(raw?.toString() ?? '') ?? DateTime.now();
     }
-
     return ChatMessageModel(
       id: id ?? data['id'] as String?,
       conversationId: data['conversation_id'] as String? ?? '',
@@ -114,25 +112,39 @@ class ChatMessageModel {
     List<String>? deliveredTo,
     bool? isDeleted,
     String? content,
-  }) => ChatMessageModel(
-    id: id ?? this.id,
-    conversationId: conversationId,
-    senderId: senderId,
-    senderUsername: senderUsername,
-    content: content ?? this.content,
-    type: type,
-    status: status ?? this.status,
-    sentAt: sentAt,
-    sentAtNanos: sentAtNanos,
-    readBy: readBy ?? this.readBy,
-    deliveredTo: deliveredTo ?? this.deliveredTo,
-    mediaUrl: mediaUrl,
-    mediaThumbnailUrl: mediaThumbnailUrl,
-    mediaDurationSeconds: mediaDurationSeconds,
-    mediaFileName: mediaFileName,
-    mediaFileSize: mediaFileSize,
-    isDeleted: isDeleted ?? this.isDeleted,
-  );
+  }) =>
+      ChatMessageModel(
+        id: id ?? this.id,
+        conversationId: conversationId,
+        senderId: senderId,
+        senderUsername: senderUsername,
+        content: content ?? this.content,
+        type: type,
+        status: status ?? this.status,
+        sentAt: sentAt,
+        sentAtNanos: sentAtNanos,
+        readBy: readBy ?? this.readBy,
+        deliveredTo: deliveredTo ?? this.deliveredTo,
+        mediaUrl: mediaUrl,
+        mediaThumbnailUrl: mediaThumbnailUrl,
+        mediaDurationSeconds: mediaDurationSeconds,
+        mediaFileName: mediaFileName,
+        mediaFileSize: mediaFileSize,
+        isDeleted: isDeleted ?? this.isDeleted,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ChatMessageModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          status == other.status &&
+          isDeleted == other.isDeleted &&
+          content == other.content;
+
+  @override
+  int get hashCode => Object.hash(id, status, isDeleted, content);
 }
 
 class MessageLimitException implements Exception {
