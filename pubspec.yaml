@@ -1,0 +1,68 @@
+name: flutter_education_app
+description: "A flutter portfolio project."
+publish_to: "none"
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  bloc: ^9.2.0
+  cloud_firestore: ^6.1.3
+  connectivity_plus: ^7.0.0
+  file_picker: ^11.0.1
+  firebase_auth: ^6.2.0
+  firebase_core: ^4.5.0
+  firebase_database: ^12.1.4
+  firebase_messaging: ^16.1.3
+  flutter:
+    sdk: flutter
+  flutter_dotenv: ^6.0.0
+  flutter_local_notifications: ^21.0.0
+  flutter_map: ^8.2.2
+  flutter_riverpod: ^3.3.1
+  geolocator: ^14.0.2
+  get: ^4.7.3
+  google_fonts: ^8.0.2
+  google_sign_in: ^7.2.0
+  http: ^1.6.0
+  image_picker: ^1.2.1
+  just_audio: ^0.10.5
+  latlong2: ^0.9.1
+  mime: ^2.0.0
+  provider: ^6.1.5+1
+  realtime_client: ^2.7.0
+  riverpod: ^3.2.1
+  shared_preferences: ^2.5.4
+  supabase: ^2.10.2
+  supabase_flutter: ^2.12.0
+  timeago: ^3.7.1
+  url_launcher: ^6.3.2
+  uuid: ^4.5.3
+  video_player: ^2.11.1
+  flutter_webrtc: ^1.4.1
+  path: ^1.9.0
+  path_provider: ^2.1.3
+  record: ^6.2.0
+  agora_rtc_engine: ^6.5.3
+  agora_chat_sdk: ^1.3.3
+  agora_rtm: ^2.2.5
+  permission_handler: ^12.0.1
+  sqflite: ^2.4.2
+  sqflite_common_ffi: ^2.4.0+2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - .env.local
+    - .env.development
+    - .env.production
+    - assets/edumap-icon.png
+    - assets/edumap-black-icon.png
+    - assets/edumap-transparent-icon.png
+    - assets/edumap-black-transparent-icon.png
