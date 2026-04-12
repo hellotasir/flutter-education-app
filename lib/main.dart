@@ -5,6 +5,7 @@ import 'package:flutter_education_app/features/app/screens/splash_screen.dart';
 import 'package:flutter_education_app/firebase_options.dart';
 import 'package:flutter_education_app/others/providers/app_theme_provider.dart';
 import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
+import 'package:flutter_education_app/others/services/notification_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,6 +14,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env.development");
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await NotificationCoordinator.instance.init(); 
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,

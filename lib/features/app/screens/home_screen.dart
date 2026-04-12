@@ -1,14 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/features/app/screens/notification_screen.dart';
 import 'package:flutter_education_app/features/map/widgets/location_widget.dart';
 import 'package:flutter_education_app/features/user/models/profile_model.dart';
 import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
 import 'package:flutter_education_app/others/constants/app_details.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
 import 'package:flutter_education_app/features/user/repositories/profile_repository.dart';
+import 'package:flutter_education_app/others/routers/app_navigator.dart';
 import 'package:flutter_education_app/others/services/local_service.dart';
 import 'package:flutter_education_app/features/chat/widgets/inbox_widget.dart';
 import 'package:flutter_education_app/features/user/screens/profile_screen.dart';
+import 'package:flutter_education_app/others/services/notification_controller.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,12 +30,24 @@ class _HomeScreenState extends State<HomeScreen> {
   late final LocationService locationService = LocationService();
 
   Stream<ProfileModel?>? _profileStream;
+  
+ 
 
   @override
   void initState() {
     super.initState();
     _initProfileStream();
+    _initNotifications();
   }
+
+  void _initNotifications() async {
+    if (_authRepository.currentUser != null) {
+      await NotificationCoordinator.instance.start();
+    } else {
+      await NotificationCoordinator.instance.stop();
+    }
+  }
+
 
   void _initProfileStream() {
     final userId = _authRepository.currentUser?.id ?? '';
@@ -113,6 +128,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             title: const Text(appName),
             actions: [
+              IconButton(
+                onPressed: () {
+                  AppNavigator(screen: NotificationScreen()).navigate(context);
+                },
+                icon: Icon(Icons.notifications_none_rounded),
+              ),
               IconButton(
                 onPressed: () {
                   Navigator.push(

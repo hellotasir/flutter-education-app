@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/chat/models/conversation_model.dart';
 import 'package:flutter_education_app/features/chat/models/friend_request_model.dart';
 import 'package:flutter_education_app/features/chat/models/user_preference_model.dart';
@@ -382,7 +383,7 @@ class ChatRepository {
                       .map(ConversationModel.fromSnapshot)
                       .toList();
 
-                  // Sort: online-partner convs first, then by recency
+        
                   list.sort((a, b) {
                     final aOnline = a.participantIds.any(
                       (id) => id != userId && onlineIds.contains(id),
@@ -391,12 +392,25 @@ class ChatRepository {
                       (id) => id != userId && onlineIds.contains(id),
                     );
                     if (aOnline != bOnline) return aOnline ? -1 : 1;
+
                     final aTime = a.lastMessageAt ?? a.createdAt;
                     final bTime = b.lastMessageAt ?? b.createdAt;
                     return bTime.compareTo(aTime);
                   });
 
                   _cache.upsertConversations(list);
+
+         
+                  final buffer = StringBuffer();
+                  buffer.writeln('Conversations Update: ${DateTime.now()}');
+                  buffer.writeln('Total: ${list.length}');
+                  for (final c in list) {
+                    buffer.writeln(
+                      'ID: ${c.id}, LastMsg: ${c.lastMessageAt}, Participants: ${c.participantIds}',
+                    );
+                  }
+                  debugPrint(buffer.toString());
+
                   return list;
                 })
                 .listen(controller.add, onError: controller.addError);

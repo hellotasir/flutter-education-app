@@ -16,7 +16,8 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   AuthRepository authRepo = AuthRepository();
-
+ 
+ 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<AuthState>(

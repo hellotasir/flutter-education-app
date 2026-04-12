@@ -43,24 +43,15 @@
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
     },
-    {
-      "collectionGroup": "notifications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "recipient_id", "order": "ASCENDING" },
-        { "fieldPath": "is_read", "order": "ASCENDING" },
-        { "fieldPath": "created_at", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "notifications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "recipient_id", "order": "ASCENDING" },
-        { "fieldPath": "conversation_id", "order": "ASCENDING" },
-        { "fieldPath": "is_read", "order": "ASCENDING" }
-      ]
-    }
+   {
+  "collectionGroup": "friend_requests",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "to_user_id", "order": "ASCENDING" },
+    { "fieldPath": "status", "order": "ASCENDING" },
+    { "fieldPath": "sent_at", "order": "DESCENDING" }
+  ]
+}
   ],
   "fieldOverrides": []
 }

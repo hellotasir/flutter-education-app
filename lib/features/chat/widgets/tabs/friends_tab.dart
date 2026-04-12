@@ -191,7 +191,7 @@ class _FriendsTabState extends State<FriendsTab> {
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: colorScheme.error),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(context),
             child: const Text('Remove'),
           ),
         ],
