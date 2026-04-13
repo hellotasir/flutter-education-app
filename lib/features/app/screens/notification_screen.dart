@@ -1,161 +1,146 @@
 // lib/features/notifications/notification_screen.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
+import 'package:flutter_education_app/features/chat/models/chat_message_model.dart';
+import 'package:flutter_education_app/features/chat/models/friend_request_model.dart';
+import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
 import 'package:intl/intl.dart';
-
-// ─── Model ────────────────────────────────────────────────────────────────────
-
-class _FriendRequest {
-  const _FriendRequest({
-    required this.id,
-    required this.fromUserId,
-    required this.fromUsername,
-    required this.fromFullName,
-    required this.fromProfilePhoto,
-    required this.sentAt,
-  });
-
-  final String id;
-  final String fromUserId;
-  final String fromUsername;
-  final String fromFullName;
-  final String fromProfilePhoto;
-  final DateTime sentAt;
-
-  String get displayName =>
-      fromFullName.isNotEmpty ? fromFullName : '@$fromUsername';
-
-  static _FriendRequest fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final d = doc.data()!;
-    return _FriendRequest(
-      id: doc.id,
-      fromUserId: d['from_user_id'] as String? ?? '',
-      fromUsername: d['from_username'] as String? ?? '',
-      fromFullName: d['from_full_name'] as String? ?? '',
-      fromProfilePhoto: d['from_profile_photo'] as String? ?? '',
-      sentAt: (d['sent_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
-  }
-}
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationScreen extends StatefulWidget {
-  const NotificationScreen({super.key});
+  const NotificationScreen({
+    super.key,
+    required this.currentUserId,
+    required this.chatRepository,
+  });
+
+  final String currentUserId;
+  final ChatRepository chatRepository;
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
 }
 
 class _NotificationScreenState extends State<NotificationScreen> {
-  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-  final _db = FirebaseFirestore.instance;
+  Stream<List<FriendRequestModel>> get _stream => widget.currentUserId.isEmpty
+      ? Stream.value([])
+      : widget.chatRepository.watchIncomingRequests(widget.currentUserId);
 
-  // NOTE: This snapshot listener is ONLY active while the screen is open.
-  // It does NOT replace the REST polling — it's just for live UI updates
-  // while the user is looking at this screen.
-  Stream<List<_FriendRequest>> get _stream => _db
-      .collection('friend_requests')
-      .where('to_user_id', isEqualTo: _uid)
-      .where('status', isEqualTo: 'pending')
-      .orderBy('sent_at', descending: true)
-      .snapshots()
-      .map((s) => s.docs.map(_FriendRequest.fromDoc).toList());
-
-  Future<void> _respond(String docId, String status) async {
-    await _db.collection('friend_requests').doc(docId).update({
-      'status': status,
-      'responded_at': FieldValue.serverTimestamp(),
-    });
+  @override
+  void initState() {
+    super.initState();
+    _clearBadge();
   }
 
-  Future<void> _dismissAll(List<_FriendRequest> list) async {
-    final batch = _db.batch();
-    for (final r in list) {
-      batch.update(_db.collection('friend_requests').doc(r.id), {
-        'status': 'rejected',
-        'responded_at': FieldValue.serverTimestamp(),
-      });
-    }
-    await batch.commit();
+  Future<void> _clearBadge() async {
+    // Clear app icon badge
+    await AppBadgePlus.updateBadge(0);
+
+    // Clear seen IDs so the background service re-notifies if needed
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('bg_seen_request_ids');
   }
+
+  Future<void> _respond(String requestId, FriendRequestStatus status) =>
+      widget.chatRepository.respondToFriendRequest(requestId, status);
+
+  Future<void> _dismissAll(List<FriendRequestModel> requests) => Future.wait(
+    requests.map(
+      (r) => widget.chatRepository.respondToFriendRequest(
+        r.id!,
+        FriendRequestStatus.rejected,
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    return MaterialWidget(
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Notifications'),
-          leading: IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          ),
-          actions: [
-            StreamBuilder<List<_FriendRequest>>(
-              stream: _stream,
-              builder: (_, snap) {
-                final list = snap.data ?? [];
-                if (list.isEmpty) return const SizedBox.shrink();
-                return IconButton(
-                  tooltip: 'Dismiss all',
-                  icon: const Icon(Icons.clear_all),
-                  onPressed: () => _dismissAll(list),
-                );
-              },
+    return StreamBuilder<List<FriendRequestModel>>(
+      stream: _stream,
+      builder: (context, snap) {
+        final requests = snap.data ?? [];
+
+        // Keep badge in sync while screen is open
+        AppBadgePlus.updateBadge(0);
+
+        return MaterialWidget(
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Notifications'),
+              leading: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              ),
+              actions: [
+                if (requests.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Dismiss all',
+                    icon: const Icon(Icons.clear_all),
+                    onPressed: () => _dismissAll(requests),
+                  ),
+              ],
             ),
+            body: _buildBody(context, snap, requests),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    AsyncSnapshot<List<FriendRequestModel>> snap,
+    List<FriendRequestModel> requests,
+  ) {
+    if (snap.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (snap.hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Could not load notifications.\n\n${snap.error}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+
+    if (requests.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.notifications_none, size: 64, color: Colors.grey),
+            SizedBox(height: 12),
+            Text('No notifications yet.', style: TextStyle(color: Colors.grey)),
           ],
         ),
-        body: StreamBuilder<List<_FriendRequest>>(
-          stream: _stream,
-          builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snap.hasError) {
-              return Center(child: Text('Error: ${snap.error}'));
-            }
+      );
+    }
 
-            final requests = snap.data ?? [];
-
-            if (requests.isEmpty) {
-              return const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.notifications_none,
-                      size: 64,
-                      color: Colors.grey,
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'No notifications yet.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: requests.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
-              itemBuilder: (_, i) => _RequestTile(
-                request: requests[i],
-                onAccept: () => _respond(requests[i].id, 'accepted'),
-                onDecline: () => _respond(requests[i].id, 'rejected'),
-              ),
-            );
-          },
-        ),
-      ),
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: requests.length,
+      separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
+      itemBuilder: (_, i) {
+        final req = requests[i];
+        return _RequestTile(
+          request: req,
+          onAccept: () => _respond(req.id!, FriendRequestStatus.accepted),
+          onDecline: () => _respond(req.id!, FriendRequestStatus.rejected),
+        );
+      },
     );
   }
 }
+
+
 
 class _RequestTile extends StatelessWidget {
   const _RequestTile({
@@ -164,13 +149,19 @@ class _RequestTile extends StatelessWidget {
     required this.onDecline,
   });
 
-  final _FriendRequest request;
+  final FriendRequestModel request;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
+
+  /// Prefers full name; falls back to @username.
+  String get _displayName => request.fromFullName.isNotEmpty
+      ? request.fromFullName
+      : '@${request.fromUsername}';
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return ListTile(
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
       leading: CircleAvatar(
@@ -180,7 +171,7 @@ class _RequestTile extends StatelessWidget {
             : null,
         child: request.fromProfilePhoto.isEmpty
             ? Text(
-                request.displayName[0].toUpperCase(),
+                _displayName[0].toUpperCase(),
                 style: const TextStyle(fontSize: 18),
               )
             : null,
@@ -189,7 +180,7 @@ class _RequestTile extends StatelessWidget {
         TextSpan(
           children: [
             TextSpan(
-              text: request.displayName,
+              text: _displayName,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             const TextSpan(text: ' sent you a friend request'),

@@ -10,7 +10,6 @@ import 'package:flutter_education_app/features/app/widgets/material_widget.dart'
 import 'package:flutter_education_app/features/app/widgets/snackbar_widget.dart';
 import 'package:flutter_education_app/features/app/widgets/appearance_sheet.dart';
 import 'package:flutter_education_app/features/app/widgets/about_app_sheet.dart';
-import 'package:flutter_education_app/others/services/notification_controller.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.profile});
@@ -74,7 +73,7 @@ class SettingsScreen extends StatelessWidget {
               label: 'Sign Out',
               color: Colors.red.shade600,
               onTap: () async {
-                await NotificationCoordinator.instance.stop();
+               
                 try {
                   await authRepository.logout().then(
                     (_) =>

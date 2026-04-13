@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -251,11 +250,11 @@ class _LruCache<K, V> {
   _LruCache(this.capacity);
 
   final int capacity;
-  final _map = LinkedHashMap<K, V>();
+  final _map = <K, V>{};
 
   V? get(K key) {
     if (!_map.containsKey(key)) return null;
-    final value = _map.remove(key)!;
+    final value = _map.remove(key) as V;
     _map[key] = value;
     return value;
   }

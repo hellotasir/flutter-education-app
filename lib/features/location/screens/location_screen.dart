@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
-import 'package:flutter_education_app/features/map/models/local_model.dart';
+import 'package:flutter_education_app/features/location/models/local_model.dart';
 import 'package:flutter_education_app/others/services/local_service.dart';
 import 'package:flutter_map/flutter_map.dart'
     show

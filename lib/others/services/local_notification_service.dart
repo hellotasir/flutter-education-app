@@ -1,62 +1,110 @@
-// lib/features/notifications/services/local_notification_service.dart
-
+import 'dart:async';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+const _kChannelId = 'friend_requests';
+const _kChannelName = 'Friend Requests';
 
 class LocalNotificationService {
   LocalNotificationService._();
   static final instance = LocalNotificationService._();
 
   final _plugin = FlutterLocalNotificationsPlugin();
-  bool _initialized = false;
+
+  final _tapController = StreamController<String>.broadcast();
+  Stream<String> get tapStream => _tapController.stream;
+
+  bool _initialised = false;
 
   Future<void> init() async {
-    if (_initialized) return;
+    if (_initialised) return;
+    _initialised = true;
+
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
 
     await _plugin.initialize(
       settings: const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: androidSettings,
+        iOS: iosSettings,
+      ),
+      onDidReceiveNotificationResponse: _onTap,
+      onDidReceiveBackgroundNotificationResponse: _onBackgroundTap,
+    );
+
+    final androidImpl = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    await androidImpl!.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _kChannelId,
+        _kChannelName,
+        importance: Importance.high,
       ),
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(
-          const AndroidNotificationChannel(
-            'friend_requests',
-            'Friend Requests',
-            description: 'Incoming friend requests',
-            importance: Importance.high,
-          ),
-        );
+    await androidImpl.requestNotificationsPermission();
 
-    _initialized = true;
+    final launchDetails = await _plugin.getNotificationAppLaunchDetails();
+    final payload = launchDetails?.notificationResponse?.payload;
+    if (launchDetails?.didNotificationLaunchApp == true &&
+        payload != null &&
+        payload.isNotEmpty) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!_tapController.isClosed) _tapController.add(payload);
+      });
+    }
   }
 
-  Future<void> showFriendRequest({
-    required String requestId,
-    required String fromUsername,
-    required String fromFullName,
-    required String fromUserId,
+  Future<void> show({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
   }) async {
-    await init();
-    final name = fromFullName.isNotEmpty ? fromFullName : '@$fromUsername';
-
     await _plugin.show(
-      id: requestId.hashCode,
-      title: 'New Friend Request 👋',
-      body: '$name wants to be your friend',
+      id: id,
+      title: title,
+      body: body,
       notificationDetails: const NotificationDetails(
         android: AndroidNotificationDetails(
-          'friend_requests',
-          'Friend Requests',
+          _kChannelId,
+          _kChannelName,
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
+          playSound: true,
+        ),
+        iOS: DarwinNotificationDetails(
+          sound: 'default',
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
         ),
       ),
-      payload: 'friend_request|$requestId|$fromUserId',
+      payload: payload,
     );
   }
+
+  Future<void> cancel(int id) => _plugin.cancel(id: id);
+  Future<void> cancelAll() => _plugin.cancelAll();
+
+  void _onTap(NotificationResponse response) {
+    final p = response.payload;
+    if (p != null && p.isNotEmpty && !_tapController.isClosed) {
+      _tapController.add(p);
+    }
+  }
+
+  void dispose() => _tapController.close();
 }
+
+@pragma('vm:entry-point')
+void _onBackgroundTap(NotificationResponse response) {}

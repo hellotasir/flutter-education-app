@@ -81,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       await _repo.login(email, password);
       if (mounted) AppNavigator(screen: AuthScreen()).navigate(context);
+     
     } catch (e) {
       if (mounted) _showSnackbar(e.toString());
     } finally {
@@ -116,6 +117,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     if (mounted) AppNavigator(screen: AuthScreen()).navigate(context);
+  
   }
 
   @override

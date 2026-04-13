@@ -43,15 +43,15 @@
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
     },
-   {
-  "collectionGroup": "friend_requests",
-  "queryScope": "COLLECTION",
-  "fields": [
-    { "fieldPath": "to_user_id", "order": "ASCENDING" },
-    { "fieldPath": "status", "order": "ASCENDING" },
-    { "fieldPath": "sent_at", "order": "DESCENDING" }
-  ]
-}
+  {
+      "collectionGroup": "friend_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "to_user_id", "order": "ASCENDING"  },
+        { "fieldPath": "status",     "order": "ASCENDING"  },
+        { "fieldPath": "sent_at",    "order": "DESCENDING" }
+      ]
+    }
   ],
   "fieldOverrides": []
 }

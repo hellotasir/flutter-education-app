@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:flutter_education_app/features/map/repositories/local_repository.dart';
+import 'package:flutter_education_app/features/location/repositories/local_repository.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_education_app/features/map/models/local_model.dart';
+import 'package:flutter_education_app/features/location/models/local_model.dart';
 import 'package:http/http.dart' as http;
 
 class LocationPermissionException implements Exception {

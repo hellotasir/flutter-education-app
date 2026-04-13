@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_education_app/features/map/models/local_model.dart';
+import 'package:flutter_education_app/features/location/models/local_model.dart';
 
 class LocationRepository {
   LocationRepository({FirebaseFirestore? firestore})

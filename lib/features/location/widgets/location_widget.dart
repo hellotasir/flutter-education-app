@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/map/models/local_model.dart';
-import 'package:flutter_education_app/features/map/screens/location_screen.dart';
+import 'package:flutter_education_app/features/location/models/local_model.dart';
+import 'package:flutter_education_app/features/location/screens/location_screen.dart';
 import 'package:flutter_education_app/others/services/local_service.dart';
 
 class LocationWidget extends StatefulWidget {

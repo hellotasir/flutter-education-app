@@ -26,13 +26,29 @@ class FriendsTab extends StatefulWidget {
 }
 
 class _FriendsTabState extends State<FriendsTab> {
+  late Future<List<Map<String, dynamic>>> _friendsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _friendsFuture = widget.chatRepository.getFriendsList(widget.currentUserId);
+  }
+
+  void _reloadFriends() {
+    setState(() {
+      _friendsFuture = widget.chatRepository.getFriendsList(
+        widget.currentUserId,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: widget.chatRepository.getFriendsList(widget.currentUserId),
+      future: _friendsFuture,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator.adaptive());
@@ -115,7 +131,7 @@ class _FriendsTabState extends State<FriendsTab> {
                         );
                     if (context.mounted) widget.onOpenChat(conv);
                   } else if (value == 'remove') {
-                    _confirmRemoveFriend(
+                    await _confirmRemoveFriend(
                       context,
                       requestId: requestId,
                       name: displayName,
@@ -177,30 +193,31 @@ class _FriendsTabState extends State<FriendsTab> {
     required String name,
   }) async {
     final colorScheme = Theme.of(context).colorScheme;
-    final confirmed = await showDialog<bool>(
+
+    await showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text('Remove $name?'),
         content: const Text(
           'They will be removed from your friends list. You can still message each other.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
             style: TextButton.styleFrom(foregroundColor: colorScheme.error),
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              if (requestId.isEmpty) return;
+              await widget.chatRepository.removeFriend(requestId);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+              _reloadFriends();
+            },
             child: const Text('Remove'),
           ),
         ],
       ),
     );
-
-    if (confirmed == true && requestId.isNotEmpty) {
-      await widget.chatRepository.removeFriend(requestId);
-      if (context.mounted) setState(() {});
-    }
   }
 }

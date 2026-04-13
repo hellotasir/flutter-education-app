@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/features/app/screens/home_screen.dart';
 import 'package:flutter_education_app/features/chat/models/chat_message_model.dart';
 import 'package:flutter_education_app/features/chat/models/conversation_model.dart';
 import 'package:flutter_education_app/features/chat/models/user_preference_model.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
+import 'package:flutter_education_app/others/routers/app_navigator.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'user_search_screen.dart';
 
@@ -83,7 +85,7 @@ class ChatSettingsScreen extends StatelessWidget {
                 onConfirm: () async {
                   await chatRepository.deleteConversation(conversation.id!);
                   if (context.mounted) {
-                    Navigator.of(context).popUntil((r) => r.isFirst);
+                    AppNavigator(screen: HomeScreen()).navigate(context);
                   }
                 },
               ),
@@ -104,7 +106,7 @@ class ChatSettingsScreen extends StatelessWidget {
                     userId: currentUserId,
                   );
                   if (context.mounted) {
-                    Navigator.of(context).popUntil((r) => r.isFirst);
+                    AppNavigator(screen: HomeScreen()).navigate(context);
                   }
                 },
               ),
@@ -121,7 +123,9 @@ class ChatSettingsScreen extends StatelessWidget {
                 confirmLabel: 'Delete',
                 onConfirm: () async {
                   await chatRepository.deleteConversation(conversation.id!);
-                  if (context.mounted) Navigator.pop(context);
+                  if (context.mounted) {
+                    AppNavigator(screen: HomeScreen()).navigate(context);
+                  }
                 },
               ),
             ),
@@ -186,8 +190,9 @@ class ChatSettingsScreen extends StatelessWidget {
                 children: [
                   Text(
                     displayName,
-                    style: tt.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: tt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if (fullName.isNotEmpty)
                     Text(
@@ -225,8 +230,7 @@ class ChatSettingsScreen extends StatelessWidget {
     TextTheme tt,
   ) {
     return conversation.participantIds.map((userId) {
-      final username =
-          conversation.participantUsernames[userId] ?? 'Unknown';
+      final username = conversation.participantUsernames[userId] ?? 'Unknown';
       final isMe = userId == currentUserId;
       final isCreator = userId == conversation.createdBy;
 
@@ -290,8 +294,9 @@ class ChatSettingsScreen extends StatelessWidget {
                   children: [
                     Text(
                       isMe ? '$displayName (You)' : displayName,
-                      style: tt.bodySmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                      style: tt.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     if (isCreator) ...[
                       const SizedBox(width: 6),
@@ -331,20 +336,15 @@ class ChatSettingsScreen extends StatelessWidget {
                 ),
                 trailing: (_isGroup && _isGroupAdmin && !isMe)
                     ? IconButton(
-                        icon: const Icon(
-                          Icons.remove_circle_outline,
-                          size: 18,
-                        ),
+                        icon: const Icon(Icons.remove_circle_outline, size: 18),
                         color: cs.error,
                         visualDensity: VisualDensity.compact,
                         onPressed: () => _confirmAction(
                           context,
                           title: 'Remove $displayName?',
-                          body:
-                              '$displayName will be removed from this group.',
+                          body: '$displayName will be removed from this group.',
                           confirmLabel: 'Remove',
-                          onConfirm: () =>
-                              chatRepository.removeMemberFromGroup(
+                          onConfirm: () => chatRepository.removeMemberFromGroup(
                             conversationId: conversation.id!,
                             userId: userId,
                           ),
@@ -401,7 +401,7 @@ class ChatSettingsScreen extends StatelessWidget {
         }
         await chatRepository.deleteConversation(conversation.id!);
         if (context.mounted) {
-          Navigator.of(context).popUntil((r) => r.isFirst);
+          AppNavigator(screen: HomeScreen()).navigate(context);
         }
       },
     );
@@ -472,8 +472,14 @@ class _RemoveFriendTileState extends State<_RemoveFriendTile> {
     if (otherUserId.isEmpty) return;
 
     final results = await Future.wait([
-      widget.chatRepository.getRequestBetween(widget.currentUserId, otherUserId),
-      widget.chatRepository.getRequestBetween(otherUserId, widget.currentUserId),
+      widget.chatRepository.getRequestBetween(
+        widget.currentUserId,
+        otherUserId,
+      ),
+      widget.chatRepository.getRequestBetween(
+        otherUserId,
+        widget.currentUserId,
+      ),
       widget.chatRepository.areFriends(widget.currentUserId, otherUserId),
     ]);
 
@@ -576,8 +582,7 @@ class _GroupHeader extends StatelessWidget {
             children: [
               Text(
                 conversation.groupName ?? 'Group',
-                style:
-                    tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               Text(
                 '${conversation.participantIds.length} members',
