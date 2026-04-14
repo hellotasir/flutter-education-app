@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/features/calls/call_screen.dart';
 import 'package:flutter_education_app/features/chat/models/chat_message_model.dart';
 import 'package:flutter_education_app/features/chat/models/conversation_model.dart';
 import 'package:flutter_education_app/features/chat/models/user_preference_model.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_education_app/features/chat/widgets/shared/audio_message
 import 'package:flutter_education_app/features/chat/widgets/shared/image_message_bubble.dart';
 import 'package:flutter_education_app/features/chat/widgets/shared/video_message_bubble.dart';
 import 'package:flutter_education_app/features/user/screens/profile_screen.dart';
+import 'package:flutter_education_app/others/routers/app_navigator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -275,7 +277,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _pickAndSendFile() async {
-    final result = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip'],
     );
@@ -601,6 +603,18 @@ class _ChatScreenState extends State<ChatScreen> {
             : _buildIndividualTitle(cs, tt),
       ),
       actions: [
+        IconButton(
+          onPressed: () {
+            AppNavigator(
+              screen: CallScreen(
+                userID: _otherUserId,
+                userName: _otherUsername,
+                channel: _otherUserId + widget.currentUserId,
+              ),
+            ).navigate(context);
+          },
+          icon: Icon(Icons.call_rounded, size: 20, color: cs.onSurface),
+        ),
         _AppBarIconButton(
           icon: Icons.tune_rounded,
           onTap: () => Navigator.push(

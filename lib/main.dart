@@ -21,11 +21,7 @@ Future<void> main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
   );
   sqfliteFfiInit();
-
-  // Init local notifications first — creates the Android channel
   await LocalNotificationService.instance.init();
-
-  // Background service uses the same channel id; channel already exists
   await initBackgroundService();
 
   runApp(
