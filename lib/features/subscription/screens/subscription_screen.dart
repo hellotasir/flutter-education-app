@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/features/app/screens/home_screen.dart';
 import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
 import 'package:flutter_education_app/features/subscription/screens/payment_screen.dart';
@@ -17,7 +18,7 @@ class SubscriptionScreen extends StatefulWidget {
 }
 
 class _SubscriptionScreenState extends State<SubscriptionScreen> {
-  bool isYearly = false;
+  bool isYearly = true;
 
   final AuthRepository _authRepository = AuthRepository();
   final ProfileRepository _profileRepository = ProfileRepository();
@@ -51,7 +52,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // ✅ Wrap everything in StreamBuilder, same as HomeScreen
     return StreamBuilder<ProfileModel?>(
       stream: _profileStream,
       builder: (context, snapshot) {
@@ -63,22 +63,25 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             appBar: AppBar(
               title: const Text('Subscription'),
               leading: IconButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () =>
+                    AppNavigator(screen: HomeScreen()).navigate(context),
                 icon: const Icon(Icons.chevron_left_rounded),
               ),
               actions: [
-                IconButton(
-                  onPressed: () {
-                    AppNavigator(
-                      screen: const TransactionScreen(),
-                    ).navigate(context);
-                  },
-                  icon: const Icon(Icons.history),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 12, 0),
+                  child: IconButton(
+                    onPressed: () {
+                      AppNavigator(
+                        screen: const TransactionScreen(),
+                      ).navigate(context);
+                    },
+                    icon: const Icon(Icons.history),
+                  ),
                 ),
               ],
             ),
 
-            // ✅ Three-state guard: loading → null → content
             body: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : profile == null
@@ -180,13 +183,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                               final plan = isYearly
                                   ? SubscriptionPlan.yearly
                                   : SubscriptionPlan.monthly;
-                              // ✅ profile is now accessible here if needed
+                            
                               AppNavigator(
                                 screen: PaymentScreen(
                                   plan: plan,
-                                  userId: profile.userId,
-                                  userEmail: profile.email,
-                                  userName: profile.profile.fullName,
                                 ),
                               ).navigate(context);
                             },

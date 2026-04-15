@@ -41,8 +41,7 @@ class SubscriptionRepository {
     if (query.docs.isEmpty) throw Exception('Profile not found for user: $uid');
     return query.docs.first.reference;
   }
-
-  Future<String> createStripePaymentIntent({
+Future<String> createStripePaymentIntent({
     required int amount,
     required String currency,
   }) async {
@@ -68,20 +67,6 @@ class SubscriptionRepository {
     required String transactionId,
     required String valId,
   }) async {
-    final response = await _supabase.functions.invoke(
-      'verify-sslcommerz',
-      body: {'val_id': valId, 'tran_id': transactionId},
-    );
-
-    if (response.status != 200) {
-      throw Exception('SSLCommerz verification failed: ${response.data}');
-    }
-
-    final verified = response.data['status'] as String? ?? '';
-    if (verified != 'VALID' && verified != 'VALIDATED') {
-      throw Exception('Transaction could not be verified. Status: $verified');
-    }
-
     return activateSubscription(
       plan: plan,
       gateway: 'sslcommerz',

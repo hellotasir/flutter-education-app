@@ -1,16 +1,25 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/features/app/widgets/app_snackbar.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
 import 'package:flutter_education_app/features/subscription/repositories/subscription_repository.dart';
 import 'package:flutter_education_app/features/subscription/screens/subscription_screen.dart';
+import 'package:flutter_education_app/features/user/models/profile_model.dart';
+import 'package:flutter_education_app/features/user/repositories/profile_repository.dart';
+import 'package:flutter_education_app/features/user/screens/profile_screen.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
-import 'package:flutter_sslcommerz/model/SSLCCustomerInfoInitializer.dart';
+import 'package:flutter_sslcommerz/model/SSLCCustomerInfoInitializer.dart'
+    show SSLCCustomerInfoInitializer;
 import 'package:flutter_sslcommerz/model/SSLCommerzInitialization.dart';
 import 'package:flutter_sslcommerz/model/SSLCurrencyType.dart';
 import 'package:flutter_sslcommerz/model/SSLCSdkType.dart';
 import 'package:flutter_sslcommerz/model/SSLCTransactionInfoModel.dart';
-import 'package:flutter_sslcommerz/model/sslproductinitilizer/NonPhysicalGoods.dart';
-import 'package:flutter_sslcommerz/model/sslproductinitilizer/SSLCProductInitializer.dart';
+import 'package:flutter_sslcommerz/model/sslproductinitilizer/NonPhysicalGoods.dart'
+    show NonPhysicalGoods;
+import 'package:flutter_sslcommerz/model/sslproductinitilizer/SSLCProductInitializer.dart'
+    show SSLCProductInitializer;
 import 'package:flutter_sslcommerz/sslcommerz.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 
@@ -21,16 +30,10 @@ enum PaymentStatus { idle, loading, success, failed }
 
 class PaymentScreen extends StatefulWidget {
   final SubscriptionPlan plan;
-  final String userId;
-  final String? userEmail;
-  final String? userName;
 
   const PaymentScreen({
     super.key,
     required this.plan,
-    required this.userId,
-    this.userEmail,
-    this.userName,
   });
 
   @override
@@ -43,8 +46,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
   String? _errorMessage;
 
   final _repo = SubscriptionRepository();
+  final _authRepository = AuthRepository();
+  final _profileRepository = ProfileRepository();
+  Stream<ProfileModel?>? _profileStream;
 
   bool get _canPay => _selectedMethod != null && _status == PaymentStatus.idle;
+
+  @override
+  void initState() {
+    super.initState();
+    _initProfileStream();
+  }
+
+  void _initProfileStream() {
+    final userId = _authRepository.currentUser?.id ?? '';
+    final collectionPath = _profileRepository.collectionPath.first;
+
+    _profileStream = FirebaseFirestore.instance
+        .collection(collectionPath)
+        .where('user_id', isEqualTo: userId)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) {
+          if (snapshot.docs.isEmpty) return null;
+          return _profileRepository.fromSnapshot(snapshot.docs.first);
+        });
+  }
 
   void _onMethodChanged(String? value) {
     setState(() {
@@ -55,72 +82,84 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              AppNavigator(
-                screen: const SubscriptionScreen(),
-              ).navigate(context);
-            }
-          },
-          icon: const Icon(Icons.chevron_left_outlined),
-        ),
-        title: const Text('Checkout'),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  _PlanSummary(plan: widget.plan),
-                  const SizedBox(height: 28),
-                  const Text(
-                    'Payment Method',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 12),
-                  _PaymentMethodTile(
-                    value: 'stripe',
-                    title: 'Credit / Debit Card',
-                    subtitle: 'Powered by Stripe',
-                    icon: Icons.credit_card_outlined,
-                    selectedValue: _selectedMethod,
-                    onChanged: _onMethodChanged,
-                  ),
-                  _PaymentMethodTile(
-                    value: 'sslcommerz',
-                    title: 'SSLCommerz',
-                    subtitle: 'Mobile banking & cards',
-                    icon: Icons.mobile_friendly_outlined,
-                    selectedValue: _selectedMethod,
-                    onChanged: _onMethodChanged,
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    _ErrorBanner(message: _errorMessage!),
-                  ],
-                ],
-              ),
+    return StreamBuilder<ProfileModel?>(
+      stream: _profileStream,
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+
+        return Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              onPressed: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  AppNavigator(
+                    screen: const SubscriptionScreen(),
+                  ).navigate(context);
+                }
+              },
+              icon: const Icon(Icons.chevron_left_outlined),
             ),
-            _BottomPayBar(
-              price: widget.plan.price,
-              canPay: _canPay,
-              isLoading: _status == PaymentStatus.loading,
-              onPay: _handlePayment,
-            ),
-          ],
-        ),
-      ),
+            title: const Text('Checkout'),
+          ),
+          body: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : profile == null
+              ? const Center(child: Text('Profile not found'))
+              : SafeArea(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.all(20),
+                          children: [
+                            _PlanSummary(plan: widget.plan),
+                            const SizedBox(height: 28),
+                            const Text(
+                              'Payment Method',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 12),
+                            _PaymentMethodTile(
+                              value: 'stripe',
+                              title: 'Credit / Debit Card',
+                              subtitle: 'Powered by Stripe',
+                              icon: Icons.credit_card_outlined,
+                              selectedValue: _selectedMethod,
+                              onChanged: _onMethodChanged,
+                            ),
+                            _PaymentMethodTile(
+                              value: 'sslcommerz',
+                              title: 'SSLCommerz',
+                              subtitle: 'Mobile banking & cards',
+                              icon: Icons.mobile_friendly_outlined,
+                              selectedValue: _selectedMethod,
+                              onChanged: _onMethodChanged,
+                            ),
+                            if (_errorMessage != null) ...[
+                              const SizedBox(height: 16),
+                              _ErrorBanner(message: _errorMessage!),
+                            ],
+                          ],
+                        ),
+                      ),
+                      _BottomPayBar(
+                        price: widget.plan.price,
+                        canPay: _canPay,
+                        isLoading: _status == PaymentStatus.loading,
+                        onPay: () => _handlePayment(profile),
+                      ),
+                    ],
+                  ),
+                ),
+        );
+      },
     );
   }
 
-  Future<void> _handlePayment() async {
+  Future<void> _handlePayment(ProfileModel profile) async {
     if (_selectedMethod == null) return;
 
     setState(() {
@@ -134,7 +173,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           await _handleStripePayment();
           break;
         case 'sslcommerz':
-          await _handleSSLCommerzPayment();
+          await _handleSSLCommerzPayment(profile);
           break;
         default:
           throw Exception('Unknown payment method: $_selectedMethod');
@@ -212,54 +251,26 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _onPaymentSuccess();
   }
 
-  Future<void> _handleSSLCommerzPayment() async {
-    final tranId =
-        'TXN_${widget.plan.name}_${DateTime.now().millisecondsSinceEpoch}';
+  Future<void> _handleSSLCommerzPayment(ProfileModel profile) async {
+    final tranId = 'TXN${DateTime.now().millisecondsSinceEpoch}';
 
     final Sslcommerz sslcommerz = Sslcommerz(
       initializer: SSLCommerzInitialization(
         multi_card_name: 'visa,master,bkash,nagad',
-        currency: SSLCurrencyType.BDT,
+        currency: SSLCurrencyType.USD,
+        language: 'en',
         product_category: 'Education',
-        sdkType: SSLCSdkType.TESTBOX, // change to LIVE for production
+        sdkType: SSLCSdkType.TESTBOX,
         store_id: storeID,
         store_passwd: storePassword,
-        total_amount: widget.plan.price,
+        total_amount: widget.plan.price.toDouble(),
         tran_id: tranId,
       ),
     );
 
-    sslcommerz.addProductInitializer(
-      sslcProductInitializer:
-          SSLCProductInitializer.WithNonPhysicalGoodsProfile(
-            productName: widget.plan.name,
-            productCategory: 'Education Subscription',
-            nonPhysicalGoods: NonPhysicalGoods(
-              productProfile: 'Subscription',
-              nonPhysicalGoods: widget.plan.name,
-            ),
-          ),
-    );
+  
 
-    sslcommerz.addCustomerInfoInitializer(
-      customerInfoInitializer: SSLCCustomerInfoInitializer(
-        customerName: widget.userName ?? 'Valued Customer',
-        customerEmail: widget.userEmail ?? 'customer@example.com',
-        customerAddress1: 'N/A',
-        customerCity: 'Dhaka',
-        customerPostCode: '1000',
-        customerCountry: 'Bangladesh',
-        customerPhone: '01700000000',
-        customerState: 'Dhaka',
-      ),
-    );
-
-    final SSLCTransactionInfoModel? result = await sslcommerz.payNow();
-    print(result);
-
-    if (result == null) {
-      throw Exception('SSLCommerz payment cancelled or returned no result.');
-    }
+    final SSLCTransactionInfoModel result = await sslcommerz.payNow();
 
     final status = result.status?.toLowerCase().trim() ?? '';
 
@@ -269,18 +280,32 @@ class _PaymentScreenState extends State<PaymentScreen> {
         transactionId: result.tranId ?? tranId,
         valId: result.valId ?? '',
       );
+
+      AppSnackbar.show(
+        context,
+        message: 'Payment successful 🎉',
+        type: SnackType.success,
+      );
+
       _onPaymentSuccess();
     } else if (status == 'cancelled') {
-      if (mounted) {
-        setState(() {
-          _status = PaymentStatus.idle;
-          _errorMessage = null;
-        });
-      }
+      AppSnackbar.show(
+        context,
+        message: 'Payment cancelled by user',
+        type: SnackType.warning,
+      );
     } else if (status == 'failed') {
-      throw Exception('SSLCommerz payment failed.');
+      AppSnackbar.show(
+        context,
+        message: 'Payment failed. Please try again.',
+        type: SnackType.error,
+      );
     } else {
-      throw Exception('Unexpected SSLCommerz status: "$status"');
+      AppSnackbar.show(
+        context,
+        message: 'Unknown payment status: $status',
+        type: SnackType.info,
+      );
     }
   }
 
@@ -300,7 +325,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         planName: widget.plan.name,
         onDone: () {
           if (success) {
-            Navigator.of(context).popUntil((r) => r.isFirst);
+            AppNavigator(screen: ProfileScreen()).navigate(context);
           } else {
             Navigator.of(context).pop();
           }
