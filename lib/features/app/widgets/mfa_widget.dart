@@ -73,8 +73,12 @@ class _MfaWidgetState extends State<MfaWidget> {
 
   @override
   void dispose() {
-    for (final c in _controllers) c.dispose();
-    for (final f in _focusNodes) f.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -173,16 +177,19 @@ class _MfaWidgetState extends State<MfaWidget> {
   }
 
   void _clearOtp() {
-    for (final c in _controllers) c.clear();
+    for (final c in _controllers) {
+      c.clear();
+    }
     if (mounted) _focusNodes.first.requestFocus();
   }
 
   void _set(_GateState s, {bool loading = false}) {
-    if (mounted)
+    if (mounted) {
       setState(() {
         _gate = s;
         _loading = loading;
       });
+    }
   }
 
   void _err(String msg) {
@@ -300,12 +307,15 @@ class _Challenge extends StatelessWidget {
                       focusNode: focusNodes[i],
                       compact: compact,
                       onChanged: (v) {
-                        if (v.isNotEmpty && i < 5)
+                        if (v.isNotEmpty && i < 5) {
                           focusNodes[i + 1].requestFocus();
-                        if (v.isEmpty && i > 0)
+                        }
+                        if (v.isEmpty && i > 0) {
                           focusNodes[i - 1].requestFocus();
-                        if (controllers.every((c) => c.text.isNotEmpty))
+                        }
+                        if (controllers.every((c) => c.text.isNotEmpty)) {
                           onVerify();
+                        }
                       },
                     ),
                   ),

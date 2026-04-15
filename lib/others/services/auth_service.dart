@@ -138,12 +138,13 @@ class AuthService {
 
   Future<AuthMFAGetAuthenticatorAssuranceLevelResponse>
   mfaGetAuthenticatorAssuranceLevel() async {
-    return await _client.auth.mfa.getAuthenticatorAssuranceLevel();
+    return _client.auth.mfa.getAuthenticatorAssuranceLevel();
   }
 
   Future<void> deleteAccount() async {
-    if (_client.auth.currentSession == null)
+    if (_client.auth.currentSession == null) {
       throw Exception('No active session');
+    }
 
     final response = await _client.functions.invoke('delete-user');
 

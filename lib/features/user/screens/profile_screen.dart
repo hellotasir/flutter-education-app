@@ -640,7 +640,7 @@ class _CoverPhoto extends StatelessWidget {
                   info.coverPhoto,
                   fit: BoxFit.cover,
                   key: ValueKey(info.coverPhoto),
-                  errorBuilder: (_, __, ___) =>
+                  errorBuilder: (_, _, _) =>
                       ColoredBox(color: cs.secondaryContainer),
                 )
               : DecoratedBox(

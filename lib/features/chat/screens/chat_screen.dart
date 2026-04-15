@@ -55,7 +55,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isProfileLoading = true;
   bool _isFriend = false;
   bool _isFriendLoaded = false;
-  bool _friendRequestSent = false;
+  final bool _friendRequestSent = false;
   int _myMessageCount = 0;
   String? _typingUser;
   Timer? _typingTimer;
@@ -116,22 +116,24 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadFriendStatus() async {
     if (_isGroup) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isFriend = true;
           _isFriendLoaded = true;
         });
+      }
       return;
     }
     final result = await widget.chatRepository.areFriends(
       widget.currentUserId,
       _otherUserId,
     );
-    if (mounted)
+    if (mounted) {
       setState(() {
         _isFriend = result;
         _isFriendLoaded = true;
       });
+    }
   }
 
   Future<void> _markRead() async {
@@ -657,7 +659,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         : null,
                     onBackgroundImageError:
                         (_otherUserPhoto?.isNotEmpty ?? false)
-                        ? (_, __) => setState(() => _otherUserPhoto = null)
+                        ? (_, _) => setState(() => _otherUserPhoto = null)
                         : null,
                     child: (_otherUserPhoto?.isEmpty ?? true)
                         ? Text(
@@ -1585,7 +1587,7 @@ class _TypingDotsState extends State<_TypingDots>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) => Row(
+      builder: (_, _) => Row(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(3, (i) {
           final offset = ((_ctrl.value * 3) - i).clamp(0.0, 1.0);

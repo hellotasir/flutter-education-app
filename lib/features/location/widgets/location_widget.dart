@@ -71,7 +71,7 @@ class _LocationWidgetState extends State<LocationWidget> {
   void _openMap() {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, animation, __) => FadeTransition(
+        pageBuilder: (_, animation, _) => FadeTransition(
           opacity: animation,
           child: LiveMapScreen(
             currentUserId: widget.userId,
@@ -277,8 +277,9 @@ class _ManageLocationsScreenState extends State<ManageLocationsScreen> {
         _snack('Address saved');
       }
     } on GeocodingException catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = 'Could not find address: ${e.message}');
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -452,7 +453,7 @@ class _SavedAddressTile extends StatelessWidget {
       leading: CircleAvatar(
         backgroundColor: location.isDefault
             ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.surfaceVariant,
+            : theme.colorScheme.surfaceContainerHighest,
         child: Icon(
           Icons.location_on_rounded,
           color: location.isDefault

@@ -106,7 +106,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
   void _openDistanceMap(FriendLocationResult friend) {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (_, animation, __) => FadeTransition(
+        pageBuilder: (_, animation, _) => FadeTransition(
           opacity: animation,
           child: DistanceMapScreen(
             currentUserId: widget.currentUserId,
@@ -141,7 +141,7 @@ class _LiveMapScreenState extends State<LiveMapScreen> {
           : ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: _friends.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final friend = _friends[index];
                 return _FriendLocationCard(
@@ -473,7 +473,7 @@ class _PulsingMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: animation,
-      builder: (_, __) => Column(
+      builder: (_, _) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Stack(

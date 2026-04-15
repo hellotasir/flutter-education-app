@@ -204,8 +204,9 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen>
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Password is required';
-              if (v.trim().length < 6)
+              if (v.trim().length < 6) {
                 return 'Password must be at least 6 characters';
+              }
               return null;
             },
           ),

@@ -52,8 +52,9 @@ class LocationRepository {
       ..['created_at'] = FieldValue.serverTimestamp()
       ..['updated_at'] = FieldValue.serverTimestamp();
 
-    if (location.isDefault)
+    if (location.isDefault) {
       await _clearDefaults(location.userId, location.role);
+    }
 
     final docRef = await _ref.add(data);
     return docRef.id;
@@ -61,8 +62,9 @@ class LocationRepository {
 
   Future<void> updateCustomLocation(LocationModel location) async {
     assert(location.id != null);
-    if (location.isDefault)
+    if (location.isDefault) {
       await _clearDefaults(location.userId, location.role);
+    }
     final data = location.toMap()
       ..['updated_at'] = FieldValue.serverTimestamp();
     await _ref.doc(location.id).update(data);

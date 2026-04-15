@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/features/subscription/screens/subscription_screen.dart';
 import 'package:flutter_education_app/features/user/models/profile_model.dart';
 import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
 import 'package:flutter_education_app/features/user/widgets/account_sheet.dart';
@@ -44,6 +45,12 @@ class SettingsScreen extends StatelessWidget {
               ).navigate(context),
             ),
             const SectionHeader(label: 'Account'),
+            SettingsTile(
+              icon: Icons.payment,
+              label: 'Subscription',
+              onTap: () =>
+                  AppNavigator(screen: SubscriptionScreen()).navigate(context),
+            ),
             SettingsTile(
               icon: Icons.manage_accounts_outlined,
               label: 'Account Settings',
@@ -171,7 +178,7 @@ class SheetScaffold extends StatelessWidget {
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const Spacer(),
-                if (trailing != null) trailing!,
+                ?trailing,
                 IconButton(
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close_rounded),

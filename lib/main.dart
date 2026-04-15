@@ -8,6 +8,7 @@ import 'package:flutter_education_app/others/providers/app_theme_provider.dart';
 import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
 import 'package:flutter_education_app/others/services/background_notification_service.dart';
 import 'package:flutter_education_app/others/services/local_notification_service.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,7 +24,7 @@ Future<void> main() async {
   sqfliteFfiInit();
   await LocalNotificationService.instance.init();
   await initBackgroundService();
-
+  Stripe.publishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY']!;
   runApp(
     MultiProvider(
       providers: [

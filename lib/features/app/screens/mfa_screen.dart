@@ -306,7 +306,7 @@ class _MfaScreenState extends State<MfaScreen> {
               decoration: BoxDecoration(
                 border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(12),
-                color: colorScheme.surfaceVariant,
+                color: colorScheme.surfaceContainerHighest,
               ),
               child: _qrSvg != null
                   ? const Center(
@@ -327,7 +327,7 @@ class _MfaScreenState extends State<MfaScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceVariant,
+                color: colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(

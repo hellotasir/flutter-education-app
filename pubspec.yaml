@@ -10,10 +10,8 @@ dependencies:
   cloud_firestore: ^6.1.3
   connectivity_plus: ^6.1.5
   file_picker: 10.3.8
-  firebase_auth: ^6.2.0
   firebase_core: ^4.5.0
   firebase_database: ^12.1.4
-  firebase_messaging: ^16.1.3
   flutter:
     sdk: flutter
   flutter_dotenv: ^6.0.0
@@ -48,6 +46,9 @@ dependencies:
   flutter_background_service: ^5.1.0
   app_badge_plus: ^1.2.8
   zego_uikit_prebuilt_call: ^4.22.4
+  flutter_stripe: ^12.6.0
+  flutter_sslcommerz: ^3.0.1
+  stripe_android: ^12.6.0
 
 dev_dependencies:
   flutter_test:

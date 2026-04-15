@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 
-// ─────────────────────────────────────────────
-// CONSTANTS — replace with your ZegoCloud keys
-// ─────────────────────────────────────────────
-final String kZegoAppID = dotenv.env['ZEGO_APP_ID']!; // Your App ID
-final String kZegoAppSign = dotenv.env['ZEGO_APP_SIGN']!; // Your App Sign
+final String kZegoAppID = dotenv.env['ZEGO_APP_ID']!;
+final String kZegoAppSign = dotenv.env['ZEGO_APP_SIGN']!;
 
 class CallScreen extends StatefulWidget {
   const CallScreen({
@@ -68,7 +65,7 @@ class _CallScreenState extends State<CallScreen> {
             // 👉 Example: show confirmation dialog
             bool? shouldLeave = await _showHangUpDialog(context);
 
-            if (shouldLeave!) {
+            if (shouldLeave == true) {
               // 🔥 Important: this actually exits the call
               return await defaultAction.call();
             } else {
@@ -129,7 +126,7 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     return ZegoUIKitPrebuiltCall(
-      appID: kZegoAppID as int,
+      appID: int.parse(kZegoAppID),
       appSign: kZegoAppSign,
       userID: widget.userID,
       userName: widget.userName,
