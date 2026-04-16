@@ -2017,10 +2017,10 @@ packages:
     dependency: transitive
     description:
       name: vibration_platform_interface
-      sha256: "4134fbfcd427b59a7a91f8733292e4e9b29a7f1e8224ff0d80f5745fbf0743c6"
+      sha256: "258c273268f8aa40c88d29741137c536874a738779b92ddb8aa32ed093721ec5"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.1"
+    version: "0.1.2"
   video_player:
     dependency: "direct main"
     description:
@@ -2073,10 +2073,10 @@ packages:
     dependency: transitive
     description:
       name: vm_service
-      sha256: "45caa6c5917fa127b5dbcfbd1fa60b14e583afdc08bfc96dda38886ca252eb60"
+      sha256: "046d3928e16fa4dc46e8350415661755ab759d9fc97fc21b5ab295f71e4f0499"
       url: "https://pub.dev"
     source: hosted
-    version: "15.0.2"
+    version: "15.1.0"
   wakelock_plus:
     dependency: transitive
     description:
@@ -2089,10 +2089,10 @@ packages:
     dependency: transitive
     description:
       name: wakelock_plus_platform_interface
-      sha256: "24b84143787220a403491c2e5de0877fbbb87baf3f0b18a2a988973863db4b03"
+      sha256: "14b2e5b9e35c2631e656913c47adecdd71633ae92896a27a64c8f1fcfabc21cc"
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.0"
+    version: "1.5.0"
   watcher:
     dependency: transitive
     description:
@@ -2241,10 +2241,10 @@ packages:
     dependency: transitive
     description:
       name: zego_zim
-      sha256: c7e4b41f2834b3953fe1a3b6447d6cd2f5add60584b488d8af8bfb864bdd133a
+      sha256: c726db33b8b8b6bc2bade4de45341c6edbd8d1b43a904de4754ceb77b741252a
       url: "https://pub.dev"
     source: hosted
-    version: "2.27.0"
+    version: "2.28.0"
   zego_zpns:
     dependency: transitive
     description:
@@ -2255,4 +2255,4 @@ packages:
     version: "2.8.0"
 sdks:
   dart: ">=3.11.1 <4.0.0"
-  flutter: ">=3.38.4"
+  flutter: ">=3.41.0"
