@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/app/widgets/loading_widget.dart';
-import 'package:flutter_education_app/features/subscription/models/subscription_transaction.dart';
+import 'package:flutter_education_app/features/subscription/models/transaction_history.dart';
 import 'package:flutter_education_app/features/subscription/repositories/transaction_repository.dart';
 import 'package:flutter_education_app/features/subscription/screens/subscription_screen.dart';
 import 'package:flutter_education_app/features/subscription/widgets/empty_state.dart';
@@ -22,7 +22,7 @@ class TransactionScreen extends StatefulWidget {
 class _TransactionScreenState extends State<TransactionScreen> {
   final TransactionRepository _repo = TransactionRepository();
 
-  late Future<List<SubscriptionTransaction>> _future;
+  late Future<List<TransactionHistory>> _future;
 
   String _gatewayFilter = 'all';
   String _statusFilter = 'all';
@@ -105,7 +105,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   }
 
 
-  Future<void> _deleteSingle(SubscriptionTransaction tx) async {
+  Future<void> _deleteSingle(TransactionHistory tx) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -151,8 +151,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   }
 
 
-  List<SubscriptionTransaction> _applyFilters(
-    List<SubscriptionTransaction> all,
+  List<TransactionHistory> _applyFilters(List<TransactionHistory> all,
   ) {
     return all.where((tx) {
       final matchGateway =
@@ -169,7 +168,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   }
 
   ({double totalSpent, int successCount, int failedCount}) _stats(
-    List<SubscriptionTransaction> all,
+    List<TransactionHistory> all,
   ) {
     double total = 0;
     int success = 0;
@@ -225,7 +224,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
           ),
         ),
       ),
-      body: FutureBuilder<List<SubscriptionTransaction>>(
+      body: FutureBuilder<List<TransactionHistory>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -294,7 +293,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     );
   }
 
-  void _showDetail(BuildContext context, SubscriptionTransaction tx) {
+  void _showDetail(BuildContext context, TransactionHistory tx) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

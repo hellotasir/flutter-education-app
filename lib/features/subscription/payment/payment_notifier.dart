@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
-import 'package:flutter_education_app/features/subscription/repositories/subscription_repository.dart';
+import 'package:flutter_education_app/features/subscription/repositories/payment_repository.dart';
 import 'package:flutter_education_app/features/user/models/profile_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -11,7 +11,6 @@ import 'package:flutter_sslcommerz/model/SSLCommerzInitialization.dart';
 import 'package:flutter_sslcommerz/model/SSLCurrencyType.dart';
 import 'package:flutter_sslcommerz/sslcommerz.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-
 import 'payment_state.dart';
 
 sealed class PaymentResult {}
@@ -35,15 +34,14 @@ final paymentNotifierProvider =
       (ref) => PaymentNotifier(ref.read(subscriptionRepositoryProvider)),
     );
 
-final subscriptionRepositoryProvider =
-    Provider.autoDispose<SubscriptionRepository>(
-      (_) => SubscriptionRepository(),
-    );
+final subscriptionRepositoryProvider = Provider.autoDispose<PaymentRepository>(
+  (_) => PaymentRepository(),
+);
 
 class PaymentNotifier extends StateNotifier<PaymentState> {
-  PaymentNotifier(this._subscriptionRepo) : super(const PaymentState());
+  PaymentNotifier(this._paymentRepo) : super(const PaymentState());
 
-  final SubscriptionRepository _subscriptionRepo;
+  final PaymentRepository _paymentRepo;
 
   void Function(PaymentResult)? onResult;
 
@@ -100,7 +98,7 @@ class PaymentNotifier extends StateNotifier<PaymentState> {
   }
 
   Future<void> _handleStripePayment(SubscriptionPlan plan) async {
-    final clientSecret = await _subscriptionRepo.createStripePaymentIntent(
+    final clientSecret = await _paymentRepo.createStripePaymentIntent(
       amount: (plan.price * 100).toInt(),
       currency: 'usd',
     );
@@ -124,7 +122,7 @@ class PaymentNotifier extends StateNotifier<PaymentState> {
 
     await Stripe.instance.presentPaymentSheet();
 
-    await _subscriptionRepo.activateSubscription(plan: plan, gateway: 'stripe');
+    await _paymentRepo.activateSubscription(plan: plan, gateway: 'stripe');
 
     state = state.copyWith(status: PaymentStatus.success);
     onResult?.call(PaymentSucceeded());
@@ -158,7 +156,7 @@ class PaymentNotifier extends StateNotifier<PaymentState> {
     switch (status) {
       case 'valid':
       case 'validated':
-        await _subscriptionRepo.verifyAndActivateSSLCommerzSubscription(
+        await _paymentRepo.verifyAndActivateSSLCommerzSubscription(
           plan: plan,
           transactionId: result.tranId ?? tranId,
           valId: result.valId ?? '',
@@ -193,7 +191,7 @@ class PaymentNotifier extends StateNotifier<PaymentState> {
     required String gateway,
     required String errorMessage,
   }) async {
-    await _subscriptionRepo.recordFailedPayment(
+    await _paymentRepo.recordFailedPayment(
       plan: plan,
       gateway: gateway,
       status: 'error',

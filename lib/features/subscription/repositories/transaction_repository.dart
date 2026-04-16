@@ -1,4 +1,4 @@
-import 'package:flutter_education_app/features/subscription/models/subscription_transaction.dart';
+import 'package:flutter_education_app/features/subscription/models/transaction_history.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -17,7 +17,7 @@ class TransactionRepository {
     return uid;
   }
 
-  Future<List<SubscriptionTransaction>> getTransactions() async {
+  Future<List<TransactionHistory>> getTransactions() async {
     try {
       final uid = _userId;
       if (uid == null) return [];
@@ -31,7 +31,7 @@ class TransactionRepository {
       return (response as List<dynamic>)
           .map(
             (row) =>
-                SubscriptionTransaction.fromMap(row as Map<String, dynamic>),
+                TransactionHistory.fromMap(row as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {
@@ -39,7 +39,7 @@ class TransactionRepository {
     }
   }
 
-  Future<SubscriptionTransaction?> getTransaction(String id) async {
+  Future<TransactionHistory?> getTransaction(String id) async {
     try {
       final uid = _userId;
       if (uid == null) return null;
@@ -52,13 +52,13 @@ class TransactionRepository {
           .maybeSingle();
 
       if (response == null) return null;
-      return SubscriptionTransaction.fromMap(response);
+      return TransactionHistory.fromMap(response);
     } catch (e) {
       throw Exception('Failed to fetch transaction: $e');
     }
   }
 
-  Future<List<SubscriptionTransaction>> getSuccessfulTransactions() async {
+  Future<List<TransactionHistory>> getSuccessfulTransactions() async {
     try {
       final uid = _userId;
       if (uid == null) return [];
@@ -73,7 +73,7 @@ class TransactionRepository {
       return (response as List<dynamic>)
           .map(
             (row) =>
-                SubscriptionTransaction.fromMap(row as Map<String, dynamic>),
+                TransactionHistory.fromMap(row as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {
@@ -81,7 +81,7 @@ class TransactionRepository {
     }
   }
 
-  Future<List<SubscriptionTransaction>> getFailedTransactions() async {
+  Future<List<TransactionHistory>> getFailedTransactions() async {
     try {
       final uid = _userId;
       if (uid == null) return [];
@@ -96,7 +96,7 @@ class TransactionRepository {
       return (response as List<dynamic>)
           .map(
             (row) =>
-                SubscriptionTransaction.fromMap(row as Map<String, dynamic>),
+                TransactionHistory.fromMap(row as Map<String, dynamic>),
           )
           .toList();
     } catch (e) {

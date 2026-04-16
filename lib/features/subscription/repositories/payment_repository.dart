@@ -4,14 +4,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_model.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
-import 'package:flutter_education_app/features/subscription/models/subscription_transaction.dart';
+import 'package:flutter_education_app/features/subscription/models/transaction_history.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-class SubscriptionRepository {
-  SubscriptionRepository({
+class PaymentRepository {
+  PaymentRepository({
     AuthRepository? authRepository,
     FirebaseFirestore? firestore,
     SupabaseClient? supabase,
@@ -23,9 +23,6 @@ class SubscriptionRepository {
   final FirebaseFirestore _firestore;
   final SupabaseClient _supabase;
   final _uuid = const Uuid();
-
-  String get sslStoreId => dotenv.env['SSL_STORE_ID'] ?? '';
-  String get sslStorePass => dotenv.env['SSL_STORE_PASS'] ?? '';
 
   String get _requireUserId {
     final uid = _auth.currentUser?.id;
@@ -55,9 +52,6 @@ class SubscriptionRepository {
       final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
       final accessToken = _supabase.auth.currentSession?.accessToken;
 
-      debugPrint('[Stripe] supabaseUrl: $supabaseUrl');
-      debugPrint('[Stripe] accessToken: $accessToken');
-
       final response = await http.post(
         Uri.parse('$supabaseUrl/functions/v1/create-payment-intent'),
         headers: {
@@ -66,34 +60,30 @@ class SubscriptionRepository {
           'Authorization': 'Bearer ${accessToken ?? anonKey}',
         },
         body: jsonEncode({'amount': amount, 'currency': currency}),
-    );
-
-      debugPrint('[Stripe] Status: ${response.statusCode}');
-      debugPrint('[Stripe] Body: ${response.body}');
+      );
 
       if (response.statusCode != 200) {
         final data = jsonDecode(response.body);
         throw Exception(
           'Payment intent failed: ${data['error'] ?? response.body}',
         );
-    }
+      }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final clientSecret = data['client_secret'] as String?;
 
-    if (clientSecret == null || clientSecret.isEmpty) {
-      throw Exception('Invalid client secret returned from server.');
-    }
+      if (clientSecret == null || clientSecret.isEmpty) {
+        throw Exception('Invalid client secret returned from server.');
+      }
 
-    return clientSecret;
-
+      return clientSecret;
     } catch (e) {
       debugPrint('[Stripe] Error: $e');
       rethrow;
     }
-}
+  }
 
-  Future<SubscriptionTransaction> verifyAndActivateSSLCommerzSubscription({
+  Future<TransactionHistory> verifyAndActivateSSLCommerzSubscription({
     required SubscriptionPlan plan,
     required String transactionId,
     required String valId,
@@ -124,7 +114,7 @@ class SubscriptionRepository {
     }
   }
 
-  Future<SubscriptionTransaction> activateSubscription({
+  Future<TransactionHistory> activateSubscription({
     required SubscriptionPlan plan,
     required String gateway,
     String? gatewayRef,
@@ -134,7 +124,7 @@ class SubscriptionRepository {
     final now = DateTime.now();
     final expiresAt = now.add(Duration(days: plan.durationDays));
 
-    final tx = SubscriptionTransaction(
+    final tx = TransactionHistory(
       id: transactionId,
       userId: uid,
       planId: plan.id,
@@ -171,7 +161,7 @@ class SubscriptionRepository {
     String? gatewayRef,
   }) async {
     final uid = _requireUserId;
-    final tx = SubscriptionTransaction(
+    final tx = TransactionHistory(
       id: _uuid.v4(),
       userId: uid,
       planId: plan.id,
@@ -196,11 +186,11 @@ class SubscriptionRepository {
     });
   }
 
-  Future<void> _recordPaymentToSupabase(SubscriptionTransaction tx) async {
+  Future<void> _recordPaymentToSupabase(TransactionHistory tx) async {
     try {
       await _supabase.from('payments').insert(tx.toMap());
     } catch (e) {
-      debugPrint('[SubscriptionRepository] Supabase payment record failed: $e');
+      debugPrint('[PaymentRepository] Supabase payment record failed: $e');
       rethrow;
     }
   }
@@ -213,9 +203,6 @@ class SubscriptionRepository {
       final ref = await _profileRef(uid);
       await ref.update({'subscription': subscription.toMap()});
     } catch (e) {
-      debugPrint(
-        '[SubscriptionRepository] Firestore subscription update failed: $e',
-      );
       rethrow;
     }
   }

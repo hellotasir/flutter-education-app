@@ -5,7 +5,7 @@ import 'package:flutter_education_app/features/app/repositories/auth_repository.
 import 'package:flutter_education_app/features/app/widgets/app_snackbar.dart';
 import 'package:flutter_education_app/features/app/widgets/loading_widget.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
-import 'package:flutter_education_app/features/subscription/providers/payment_notifier.dart';
+import 'package:flutter_education_app/features/subscription/payment/payment_notifier.dart';
 import 'package:flutter_education_app/features/subscription/screens/subscription_screen.dart';
 import 'package:flutter_education_app/features/subscription/widgets/bottom_paybar.dart';
 import 'package:flutter_education_app/features/subscription/widgets/error_banner.dart';

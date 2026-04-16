@@ -1,4 +1,4 @@
-class SubscriptionTransaction {
+class TransactionHistory {
   final String id;
   final String userId;
   final String planId;
@@ -11,7 +11,7 @@ class SubscriptionTransaction {
   final String? errorMessage;
   final DateTime createdAt;
 
-  const SubscriptionTransaction({
+  const TransactionHistory({
     required this.id,
     required this.userId,
     required this.planId,
@@ -41,8 +41,8 @@ class SubscriptionTransaction {
     'created_at': createdAt.toIso8601String(),
   };
 
-  factory SubscriptionTransaction.fromMap(Map<String, dynamic> map) =>
-      SubscriptionTransaction(
+  factory TransactionHistory.fromMap(Map<String, dynamic> map) =>
+      TransactionHistory(
         id: map['id'] as String,
         userId: map['user_id'] as String? ?? '',
         planId: map['plan_id'] as String? ?? '',
@@ -57,9 +57,4 @@ class SubscriptionTransaction {
             ? DateTime.parse(map['created_at'] as String)
             : DateTime.now(),
       );
-
-  @override
-  String toString() =>
-      'SubscriptionTransaction(id: $id, planName: $planName, '
-      'amount: $amount, status: $status, gateway: $gateway)';
 }

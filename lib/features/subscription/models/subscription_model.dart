@@ -73,8 +73,4 @@ class SubscriptionModel {
     updatedAt: updatedAt ?? this.updatedAt,
   );
 
-  @override
-  String toString() =>
-      'SubscriptionModel(planId: $planId, status: $status, '
-      'expiresAt: $expiresAt, daysRemaining: $daysRemaining)';
 }

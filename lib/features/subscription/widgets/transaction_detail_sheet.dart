@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_education_app/features/subscription/models/subscription_transaction.dart';
+import 'package:flutter_education_app/features/subscription/models/transaction_history.dart';
 
 const _kGateways = {
   'all': (label: 'All Gateways', icon: Icons.all_inclusive_rounded),
@@ -9,7 +9,7 @@ const _kGateways = {
 };
 
 class TransactionDetailSheet extends StatelessWidget {
-  final SubscriptionTransaction tx;
+  final TransactionHistory tx;
   const TransactionDetailSheet({super.key, required this.tx});
 
   @override

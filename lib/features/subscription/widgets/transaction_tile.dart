@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/subscription/models/subscription_transaction.dart';
+import 'package:flutter_education_app/features/subscription/models/transaction_history.dart';
 
 const _kGateways = {
   'all': (label: 'All Gateways', icon: Icons.all_inclusive_rounded),
@@ -8,7 +8,7 @@ const _kGateways = {
 };
 
 class TransactionTile extends StatelessWidget {
-  final SubscriptionTransaction tx;
+  final TransactionHistory tx;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 

@@ -53,7 +53,4 @@ class SubscriptionPlan {
     features: List<String>.from(map['features'] as List),
   );
 
-  @override
-  String toString() =>
-      'SubscriptionPlan(id: $id, name: $name, price: $price, duration: $duration)';
 }
