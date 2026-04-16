@@ -11,7 +11,6 @@ import 'package:flutter_education_app/others/routers/app_navigator.dart';
 import 'package:flutter_education_app/others/services/local_service.dart';
 import 'package:flutter_education_app/features/chat/widgets/inbox_widget.dart';
 import 'package:flutter_education_app/features/user/screens/profile_screen.dart';
-import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -125,8 +124,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   AppNavigator(
                     screen: NotificationScreen(
                       currentUserId: profile!.userId,
-                      chatRepository: context
-                          .read<ChatRepository>(), // or however you provide it
+                      chatRepository:
+                          chatRepository, // or however you provide it
                     ),
                   ).navigate(context);
                 },

@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 
-final String kZegoAppID = dotenv.env['ZEGO_APP_ID']!;
-final String kZegoAppSign = dotenv.env['ZEGO_APP_SIGN']!;
-
 class CallScreen extends StatefulWidget {
   const CallScreen({
     super.key,
@@ -24,6 +21,10 @@ class CallScreen extends StatefulWidget {
 }
 
 class _CallScreenState extends State<CallScreen> {
+  // ✅ Moved inside the class — accessed lazily after dotenv.load() is done
+  int get _appID => int.parse(dotenv.env['ZEGO_APP_ID']!);
+  String get _appSign => dotenv.env['ZEGO_APP_SIGN']!;
+
   ZegoUIKitPrebuiltCallConfig _buildCallConfig() {
     final config = widget.isVideoCall
         ? ZegoUIKitPrebuiltCallConfig.oneOnOneVideoCall()
@@ -62,28 +63,23 @@ class _CallScreenState extends State<CallScreen> {
           ) async {
             debugPrint('User tapped hang up');
 
-            // 👉 Example: show confirmation dialog
-            bool? shouldLeave = await _showHangUpDialog(context);
+            final bool? shouldLeave = await _showHangUpDialog(context);
 
             if (shouldLeave == true) {
-              // 🔥 Important: this actually exits the call
               return await defaultAction.call();
             } else {
               return false;
             }
           },
 
-      // ✅ Replaces the old onOnlySelfInRoom — handles all call-end reasons
       onCallEnd: (ZegoCallEndEvent event, VoidCallback defaultAction) {
         debugPrint('Call ended, reason: ${event.reason}');
-        // MUST call defaultAction or navigate manually — SDK will not pop automatically
         defaultAction.call();
       },
     );
   }
 
-  // ✅ Returns Future<bool?> to match ZegoCallHangUpConfirmationCallback
-  Future<bool?> _showHangUpDialog(BuildContext context) async {
+  Future<bool?> _showHangUpDialog(BuildContext context) {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -126,8 +122,8 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     return ZegoUIKitPrebuiltCall(
-      appID: int.parse(kZegoAppID),
-      appSign: kZegoAppSign,
+      appID: _appID,
+      appSign: _appSign,   
       userID: widget.userID,
       userName: widget.userName,
       callID: widget.channel,

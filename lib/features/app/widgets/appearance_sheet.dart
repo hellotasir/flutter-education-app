@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_education_app/others/providers/app_theme_provider.dart';
-import 'package:provider/provider.dart';
 
-class AppearanceSheet extends StatefulWidget {
-  const AppearanceSheet._();
+class AppearanceSheet extends ConsumerStatefulWidget {
+  const AppearanceSheet._({required this.messenger});
+
+  // Accept the messenger from the caller
+  final ScaffoldMessengerState messenger;
 
   static void show(BuildContext context) {
+    // Capture before opening the sheet
+    final messenger = ScaffoldMessenger.of(context);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -13,21 +19,21 @@ class AppearanceSheet extends StatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => const AppearanceSheet._(),
+      builder: (_) => AppearanceSheet._(messenger: messenger),
     );
   }
 
   @override
-  State<AppearanceSheet> createState() => _AppearanceSheetState();
+  ConsumerState<AppearanceSheet> createState() => _AppearanceSheetState();
 }
 
-class _AppearanceSheetState extends State<AppearanceSheet> {
+class _AppearanceSheetState extends ConsumerState<AppearanceSheet> {
   late String _theme;
 
   @override
   void initState() {
     super.initState();
-    _theme = context.read<ThemeProvider>().themeName;
+    _theme = ref.read(themeProvider.notifier).themeName;
   }
 
   @override
@@ -61,16 +67,13 @@ class _AppearanceSheetState extends State<AppearanceSheet> {
                 ),
               ),
             ),
-
             Text(
               'Appearance',
               style: Theme.of(
                 context,
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
             ),
-
             const SizedBox(height: 6),
-
             Text(
               'Choose how the app looks on your device.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -79,20 +82,13 @@ class _AppearanceSheetState extends State<AppearanceSheet> {
                 ).colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-
             const SizedBox(height: 20),
-
             RadioGroup<String>(
               groupValue: _theme,
-              onChanged: (value) {
-                setState(() {
-                  _theme = value!;
-                });
-              },
+              onChanged: (value) => setState(() => _theme = value!),
               child: Column(
                 children: options.map((opt) {
                   final (value, icon, label, subtitle) = opt;
-
                   return RadioListTile<String>(
                     value: value,
                     secondary: Icon(icon),
@@ -106,18 +102,17 @@ class _AppearanceSheetState extends State<AppearanceSheet> {
                 }).toList(),
               ),
             ),
-
             const SizedBox(height: 24),
-
             FilledButton(
               onPressed: () async {
-                await context.read<ThemeProvider>().setTheme(_theme);
+                await ref.read(themeProvider.notifier).setTheme(_theme);
 
                 if (!context.mounted) return;
 
                 Navigator.pop(context);
 
-                ScaffoldMessenger.of(context).showSnackBar(
+                // Use the pre-captured messenger from the parent Scaffold
+                widget.messenger.showSnackBar(
                   SnackBar(
                     content: Text('Appearance set to $_theme'),
                     behavior: SnackBarBehavior.floating,

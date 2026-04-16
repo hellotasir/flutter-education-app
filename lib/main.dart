@@ -2,14 +2,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_education_app/features/app/screens/splash_screen.dart';
-import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
 import 'package:flutter_education_app/firebase_options.dart';
-import 'package:flutter_education_app/others/providers/app_theme_provider.dart';
 import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
 import 'package:flutter_education_app/others/services/background_notification_service.dart';
 import 'package:flutter_education_app/others/services/local_notification_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:provider/provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -27,16 +25,7 @@ Future<void> main() async {
   Stripe.publishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY']!;
   await Stripe.instance.applySettings();
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        Provider<ChatRepository>(
-          create: (_) => ChatRepository(),
-          dispose: (_, repo) => repo.disposeTypingChannel(),
-        ),
-      ],
-      child: const MyApp(),
-    ),
+   ProviderScope(child: MaterialApp(home: MyApp()))
   );
 }
 

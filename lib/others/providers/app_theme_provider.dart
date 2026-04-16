@@ -1,14 +1,19 @@
+// others/providers/app_theme_provider.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class ThemeProvider extends ChangeNotifier {
+class ThemeNotifier extends Notifier<ThemeMode> {
   static const _key = 'app_theme';
 
-  ThemeMode _themeMode = ThemeMode.system;
-  ThemeMode get themeMode => _themeMode;
+  @override
+  ThemeMode build() {
+    _loadTheme();
+    return ThemeMode.system;
+  }
 
   String get themeName {
-    switch (_themeMode) {
+    switch (state) {
       case ThemeMode.light:
         return 'light';
       case ThemeMode.dark:
@@ -18,20 +23,14 @@ class ThemeProvider extends ChangeNotifier {
     }
   }
 
-  ThemeProvider() {
-    _loadTheme();
-  }
-
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_key) ?? 'system';
-    _themeMode = _fromString(saved);
-    notifyListeners();
+    state = _fromString(saved);
   }
 
   Future<void> setTheme(String value) async {
-    _themeMode = _fromString(value);
-    notifyListeners();
+    state = _fromString(value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, value);
   }
@@ -47,3 +46,7 @@ class ThemeProvider extends ChangeNotifier {
     }
   }
 }
+
+final themeProvider = NotifierProvider<ThemeNotifier, ThemeMode>(
+  ThemeNotifier.new,
+);

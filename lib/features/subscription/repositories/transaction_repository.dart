@@ -1,5 +1,10 @@
 import 'package:flutter_education_app/features/subscription/models/subscription_transaction.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
+  return TransactionRepository();
+});
 
 class TransactionRepository {
   final _supabase = Supabase.instance.client;
@@ -11,8 +16,6 @@ class TransactionRepository {
     if (uid == null) throw Exception('No authenticated user found.');
     return uid;
   }
-
-  // ─── READ ───────────────────────────────────────────────────────────────────
 
   Future<List<SubscriptionTransaction>> getTransactions() async {
     try {
@@ -101,35 +104,27 @@ class TransactionRepository {
     }
   }
 
-  // ─── DELETE ─────────────────────────────────────────────────────────────────
-
-  /// Delete a single transaction by ID (only if it belongs to current user)
   Future<void> deleteTransaction(String id) async {
     try {
       final uid = _requireUserId;
-
       await _supabase.from('payments').delete().eq('id', id).eq('user_id', uid);
     } catch (e) {
       throw Exception('Failed to delete transaction: $e');
     }
   }
 
-  /// Delete all transactions for current user
   Future<void> deleteAllTransactions() async {
     try {
       final uid = _requireUserId;
-
       await _supabase.from('payments').delete().eq('user_id', uid);
     } catch (e) {
       throw Exception('Failed to delete all transactions: $e');
     }
   }
 
-  /// Delete all failed transactions for current user
   Future<void> deleteFailedTransactions() async {
     try {
       final uid = _requireUserId;
-
       await _supabase
           .from('payments')
           .delete()
@@ -140,12 +135,10 @@ class TransactionRepository {
     }
   }
 
-  /// Delete multiple transactions by list of IDs (only if they belong to current user)
   Future<void> deleteTransactions(List<String> ids) async {
     try {
       if (ids.isEmpty) return;
       final uid = _requireUserId;
-
       await _supabase
           .from('payments')
           .delete()
