@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/chat/models/conversation_model.dart';
 import 'package:flutter_education_app/features/chat/models/friend_request_model.dart';
 import 'package:flutter_education_app/features/chat/models/user_preference_model.dart';
-import 'package:flutter_education_app/others/services/storage_service.dart';
+import 'package:flutter_education_app/others/services/cloud/storage_service.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';

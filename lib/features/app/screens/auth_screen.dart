@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
 import 'package:flutter_education_app/features/app/screens/notification_screen.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
@@ -10,7 +10,7 @@ import 'package:flutter_education_app/features/app/screens/home_screen.dart';
 import 'package:flutter_education_app/features/app/screens/login_screen.dart';
 import 'package:flutter_education_app/features/app/screens/error_screen.dart';
 import 'package:flutter_education_app/features/app/widgets/loading_widget.dart';
-import 'package:flutter_education_app/others/services/in_app_notification_overlay.dart';
+import 'package:flutter_education_app/others/services/local/in_app_notification_overlay.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthScreen extends StatefulWidget {

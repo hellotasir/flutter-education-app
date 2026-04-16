@@ -2,15 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/app/screens/notification_screen.dart';
 import 'package:flutter_education_app/features/location/widgets/location_widget.dart';
-import 'package:flutter_education_app/features/user/models/profile_model.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/features/profile/models/profile_model.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
 import 'package:flutter_education_app/others/constants/app_details.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
-import 'package:flutter_education_app/features/user/repositories/profile_repository.dart';
+import 'package:flutter_education_app/features/profile/repositories/profile_repository.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
-import 'package:flutter_education_app/others/services/local_service.dart';
+import 'package:flutter_education_app/others/services/cloud/local_service.dart';
 import 'package:flutter_education_app/features/chat/widgets/inbox_widget.dart';
-import 'package:flutter_education_app/features/user/screens/profile_screen.dart';
+import 'package:flutter_education_app/features/profile/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_education_app/features/app/repositories/database_repository.dart';
-import 'package:flutter_education_app/others/services/database_service.dart';
+import 'package:flutter_education_app/others/repositories/firestore_repository.dart';
+import 'package:flutter_education_app/others/services/cloud/database_service.dart';
 
 class FirestoreProvider<T> extends InheritedWidget {
   FirestoreProvider({

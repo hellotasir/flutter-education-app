@@ -13,7 +13,7 @@ import 'package:flutter_education_app/features/chat/screens/chat_settings_screen
 import 'package:flutter_education_app/features/chat/widgets/shared/audio_message_bubble.dart';
 import 'package:flutter_education_app/features/chat/widgets/shared/image_message_bubble.dart';
 import 'package:flutter_education_app/features/chat/widgets/shared/video_message_bubble.dart';
-import 'package:flutter_education_app/features/user/screens/profile_screen.dart';
+import 'package:flutter_education_app/features/profile/screens/profile_screen.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';

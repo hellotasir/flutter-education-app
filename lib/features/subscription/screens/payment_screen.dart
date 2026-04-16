@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
 import 'package:flutter_education_app/features/app/widgets/app_snackbar.dart';
 import 'package:flutter_education_app/features/app/widgets/loading_widget.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
@@ -11,8 +11,8 @@ import 'package:flutter_education_app/features/subscription/widgets/bottom_payba
 import 'package:flutter_education_app/features/subscription/widgets/error_banner.dart';
 import 'package:flutter_education_app/features/subscription/widgets/payment_method_tile.dart';
 import 'package:flutter_education_app/features/subscription/widgets/plan_summary_card.dart';
-import 'package:flutter_education_app/features/user/models/profile_model.dart';
-import 'package:flutter_education_app/features/user/repositories/profile_repository.dart';
+import 'package:flutter_education_app/features/profile/models/profile_model.dart';
+import 'package:flutter_education_app/features/profile/repositories/profile_repository.dart';
 import 'package:flutter_education_app/others/constants/messages.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

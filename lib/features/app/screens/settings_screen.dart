@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/subscription/screens/subscription_screen.dart';
-import 'package:flutter_education_app/features/user/models/profile_model.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
-import 'package:flutter_education_app/features/user/widgets/account_sheet.dart';
+import 'package:flutter_education_app/features/profile/models/profile_model.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
+import 'package:flutter_education_app/features/profile/widgets/account_sheet.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
 import 'package:flutter_education_app/features/app/screens/login_screen.dart';
 import 'package:flutter_education_app/features/app/screens/feedback_screen.dart';
-import 'package:flutter_education_app/features/user/screens/profile_settings_screen.dart';
+import 'package:flutter_education_app/features/profile/screens/profile_settings_screen.dart';
 import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
 import 'package:flutter_education_app/features/app/widgets/snackbar_widget.dart';
 import 'package:flutter_education_app/features/app/widgets/appearance_sheet.dart';

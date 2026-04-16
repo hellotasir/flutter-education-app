@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
 import 'package:flutter_education_app/features/app/screens/account_details_screen.dart';
 import 'package:flutter_education_app/features/app/screens/delete_account_screen.dart';
 import 'package:flutter_education_app/features/app/screens/mfa_screen.dart';

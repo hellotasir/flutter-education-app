@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
 import 'package:flutter_education_app/features/subscription/repositories/payment_repository.dart';
-import 'package:flutter_education_app/features/user/models/profile_model.dart';
+import 'package:flutter_education_app/features/profile/models/profile_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_sslcommerz/model/SSLCSdkType.dart';

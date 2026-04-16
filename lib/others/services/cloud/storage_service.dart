@@ -3,9 +3,9 @@ import 'package:mime/mime.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseStorageService {
-  SupabaseStorageService({this.bucket = 'user-media'});
+  SupabaseStorageService();
 
-  final String bucket;
+  final String bucket = 'user-media';
 
   static const _chatBucket = 'chat-media';
 

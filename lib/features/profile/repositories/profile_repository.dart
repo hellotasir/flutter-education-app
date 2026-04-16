@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_education_app/features/user/models/profile_model.dart';
-import 'package:flutter_education_app/features/app/repositories/database_repository.dart';
+import 'package:flutter_education_app/features/profile/models/profile_model.dart';
+import 'package:flutter_education_app/others/repositories/firestore_repository.dart';
 
 class ProfileRepository implements FirestoreRepository<ProfileModel> {
   @override
@@ -9,7 +9,6 @@ class ProfileRepository implements FirestoreRepository<ProfileModel> {
   @override
   ProfileModel fromSnapshot(DocumentSnapshot<Map<String, dynamic>> snapshot) {
     final data = snapshot.data()!;
-
     return ProfileModel(
       id: snapshot.id,
       userId: data['user_id'] ?? '',
@@ -17,21 +16,17 @@ class ProfileRepository implements FirestoreRepository<ProfileModel> {
       email: data['email'] ?? '',
       phone: data['phone'] ?? '',
       passwordHash: data['password_hash'] ?? '',
-
       currentMode: data['current_mode'] ?? 'student',
       availableModes:
           (data['available_modes'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-
       isVerified: data['is_verified'] ?? false,
       status: data['status'] ?? 'active',
-
       createdAt: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updated_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastLogin: (data['last_login'] as Timestamp?)?.toDate() ?? DateTime.now(),
-
       profile: _parseProfile(data['profile']),
       studentProfile: _parseStudent(data['student_profile']),
       instructorProfile: _parseInstructor(data['instructor_profile']),
@@ -46,17 +41,13 @@ class ProfileRepository implements FirestoreRepository<ProfileModel> {
     'email': model.email,
     'phone': model.phone,
     'password_hash': model.passwordHash,
-
     'current_mode': model.currentMode,
     'available_modes': model.availableModes,
-
     'is_verified': model.isVerified,
     'status': model.status,
-
     'created_at': Timestamp.fromDate(model.createdAt),
     'updated_at': Timestamp.fromDate(model.updatedAt),
     'last_login': Timestamp.fromDate(model.lastLogin),
-
     'profile': _profileToMap(model.profile),
     'student_profile': _studentToMap(model.studentProfile),
     'instructor_profile': _instructorToMap(model.instructorProfile),
@@ -65,11 +56,10 @@ class ProfileRepository implements FirestoreRepository<ProfileModel> {
 
   ProfileInfo _parseProfile(Map<String, dynamic>? data) {
     data ??= {};
-
     return ProfileInfo(
       fullName: data['full_name'] ?? '',
       profilePhoto: data['profile_photo'] ?? '',
-      coverPhoto: data['cover_photo'] ?? '', // ← added
+      coverPhoto: data['cover_photo'] ?? '',
       bio: data['bio'] ?? '',
       dateOfBirth: null,
       gender: data['gender'] ?? '',
@@ -129,7 +119,7 @@ class ProfileRepository implements FirestoreRepository<ProfileModel> {
   Map<String, dynamic> _profileToMap(ProfileInfo p) => {
     'full_name': p.fullName,
     'profile_photo': p.profilePhoto,
-    'cover_photo': p.coverPhoto, // ← added
+    'cover_photo': p.coverPhoto,
     'bio': p.bio,
     'gender': p.gender,
     'location': {

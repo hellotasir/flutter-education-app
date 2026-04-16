@@ -1,14 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
-import 'package:flutter_education_app/features/app/screens/home_screen.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
 import 'package:flutter_education_app/features/app/widgets/loading_widget.dart';
 import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
 import 'package:flutter_education_app/features/subscription/screens/payment_screen.dart';
 import 'package:flutter_education_app/features/subscription/screens/transaction_screen.dart';
-import 'package:flutter_education_app/features/user/models/profile_model.dart';
-import 'package:flutter_education_app/features/user/repositories/profile_repository.dart';
+import 'package:flutter_education_app/features/profile/models/profile_model.dart';
+import 'package:flutter_education_app/features/profile/repositories/profile_repository.dart';
+import 'package:flutter_education_app/features/profile/screens/profile_screen.dart';
 import 'package:flutter_education_app/others/constants/messages.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
 
@@ -66,7 +66,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               title: const Text('Subscription'),
               leading: IconButton(
                 onPressed: () =>
-                    AppNavigator(screen: HomeScreen()).navigate(context),
+                    AppNavigator(screen: ProfileScreen()).navigate(context),
                 icon: const Icon(Icons.chevron_left_rounded),
               ),
               actions: [

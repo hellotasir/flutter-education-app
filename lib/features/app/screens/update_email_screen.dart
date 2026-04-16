@@ -1,7 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
 import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
 import 'package:flutter_education_app/features/app/widgets/snackbar_widget.dart';

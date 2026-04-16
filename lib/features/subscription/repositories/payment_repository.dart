@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_model.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
 import 'package:flutter_education_app/features/subscription/models/transaction_history.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/auth_repository.dart';
+import 'package:flutter_education_app/others/repositories/auth_repository.dart';
 import 'package:flutter_education_app/features/app/widgets/network_widget.dart';
 import 'package:flutter_education_app/features/chat/models/conversation_model.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';

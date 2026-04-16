@@ -22,47 +22,61 @@ class ProfileModel {
   });
 
   final String? id;
-
   final String userId;
   final String username;
   final String email;
   final String phone;
   final String passwordHash;
-
   final String currentMode;
   final List<String> availableModes;
-
   final bool isVerified;
   final String status;
-
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime lastLogin;
-
   final ProfileInfo profile;
   final StudentProfile studentProfile;
   final InstructorProfile instructorProfile;
   final SystemInfo system;
 
-  ProfileModel copyWith({String? id}) => ProfileModel(
-    id: id ?? this.id,
-    userId: userId,
-    username: username,
-    email: email,
-    phone: phone,
-    passwordHash: passwordHash,
-    currentMode: currentMode,
-    availableModes: availableModes,
-    isVerified: isVerified,
-    status: status,
-    createdAt: createdAt,
-    updatedAt: updatedAt,
-    lastLogin: lastLogin,
-    profile: profile,
-    studentProfile: studentProfile,
-    instructorProfile: instructorProfile,
-    system: system,
-  );
+  ProfileModel copyWith({
+    String? id,
+    String? userId,
+    String? username,
+    String? email,
+    String? phone,
+    String? passwordHash,
+    String? currentMode,
+    List<String>? availableModes,
+    bool? isVerified,
+    String? status,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? lastLogin,
+    ProfileInfo? profile,
+    StudentProfile? studentProfile,
+    InstructorProfile? instructorProfile,
+    SystemInfo? system,
+  }) =>
+      ProfileModel(
+        id: id ?? this.id,
+        userId: userId ?? this.userId,
+        username: username ?? this.username,
+        email: email ?? this.email,
+        phone: phone ?? this.phone,
+        passwordHash: passwordHash ?? this.passwordHash,
+        currentMode: currentMode ?? this.currentMode,
+        availableModes: availableModes ?? this.availableModes,
+        isVerified: isVerified ?? this.isVerified,
+        status: status ?? this.status,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        lastLogin: lastLogin ?? this.lastLogin,
+        profile: profile ?? this.profile,
+        studentProfile: studentProfile ?? this.studentProfile,
+        instructorProfile: instructorProfile ?? this.instructorProfile,
+        system: system ?? this.system,
+      );
 }
 
 class ProfileInfo {
@@ -87,6 +101,29 @@ class ProfileInfo {
   final Location location;
   final List<String> languages;
   final SocialLinks socialLinks;
+
+  ProfileInfo copyWith({
+    String? fullName,
+    String? profilePhoto,
+    String? coverPhoto,
+    String? bio,
+    DateTime? dateOfBirth,
+    String? gender,
+    Location? location,
+    List<String>? languages,
+    SocialLinks? socialLinks,
+  }) =>
+      ProfileInfo(
+        fullName: fullName ?? this.fullName,
+        profilePhoto: profilePhoto ?? this.profilePhoto,
+        coverPhoto: coverPhoto ?? this.coverPhoto,
+        bio: bio ?? this.bio,
+        dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+        gender: gender ?? this.gender,
+        location: location ?? this.location,
+        languages: languages ?? this.languages,
+        socialLinks: socialLinks ?? this.socialLinks,
+      );
 }
 
 class Location {
@@ -166,24 +203,21 @@ class MediaModel {
   final int size;
   final DateTime uploadedAt;
 
-  factory MediaModel.fromMap(Map<String, dynamic> map) {
-    return MediaModel(
-      url: map['url'] ?? '',
-      path: map['path'] ?? '',
-      bucket: map['bucket'] ?? '',
-      mimeType: map['mime_type'] ?? '',
-      size: (map['size'] ?? 0) as int,
-      uploadedAt:
-          (map['uploaded_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-    );
-  }
+  factory MediaModel.fromMap(Map<String, dynamic> map) => MediaModel(
+        url: map['url'] ?? '',
+        path: map['path'] ?? '',
+        bucket: map['bucket'] ?? '',
+        mimeType: map['mime_type'] ?? '',
+        size: (map['size'] ?? 0) as int,
+        uploadedAt: (map['uploaded_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
 
   Map<String, dynamic> toMap() => {
-    'url': url,
-    'path': path,
-    'bucket': bucket,
-    'mime_type': mimeType,
-    'size': size,
-    'uploaded_at': Timestamp.fromDate(uploadedAt),
-  };
+        'url': url,
+        'path': path,
+        'bucket': bucket,
+        'mime_type': mimeType,
+        'size': size,
+        'uploaded_at': Timestamp.fromDate(uploadedAt),
+      };
 }
