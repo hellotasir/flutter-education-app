@@ -7,15 +7,17 @@ import 'package:flutter_education_app/features/subscription/models/subscription_
 import 'package:flutter_education_app/features/subscription/models/subscription_transaction.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class SubscriptionRepository {
   SubscriptionRepository({
     AuthRepository? authRepository,
     FirebaseFirestore? firestore,
     SupabaseClient? supabase,
-  })  : _auth = authRepository ?? AuthRepository(),
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _supabase = supabase ?? Supabase.instance.client;
+  }) : _auth = authRepository ?? AuthRepository(),
+       _firestore = firestore ?? FirebaseFirestore.instance,
+       _supabase = supabase ?? Supabase.instance.client;
 
   final AuthRepository _auth;
   final FirebaseFirestore _firestore;
@@ -31,7 +33,9 @@ class SubscriptionRepository {
     return uid;
   }
 
-  Future<DocumentReference<Map<String, dynamic>>> _profileRef(String uid) async {
+  Future<DocumentReference<Map<String, dynamic>>> _profileRef(
+    String uid,
+  ) async {
     final query = await _firestore
         .collection('profiles')
         .where('user_id', isEqualTo: uid)
@@ -41,26 +45,53 @@ class SubscriptionRepository {
     if (query.docs.isEmpty) throw Exception('Profile not found for user: $uid');
     return query.docs.first.reference;
   }
-Future<String> createStripePaymentIntent({
+
+  Future<String> createStripePaymentIntent({
     required int amount,
     required String currency,
   }) async {
-    final response = await _supabase.functions.invoke(
-      'create-payment-intent',
-      body: {'amount': amount, 'currency': currency},
+    try {
+      final supabaseUrl = dotenv.env['SUPABASE_URL']!;
+      final anonKey = dotenv.env['SUPABASE_ANON_KEY']!;
+      final accessToken = _supabase.auth.currentSession?.accessToken;
+
+      debugPrint('[Stripe] supabaseUrl: $supabaseUrl');
+      debugPrint('[Stripe] accessToken: $accessToken');
+
+      final response = await http.post(
+        Uri.parse('$supabaseUrl/functions/v1/create-payment-intent'),
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': anonKey,
+          'Authorization': 'Bearer ${accessToken ?? anonKey}',
+        },
+        body: jsonEncode({'amount': amount, 'currency': currency}),
     );
 
-    if (response.status != 200) {
-      throw Exception('Failed to create payment intent: ${response.data}');
+      debugPrint('[Stripe] Status: ${response.statusCode}');
+      debugPrint('[Stripe] Body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        final data = jsonDecode(response.body);
+        throw Exception(
+          'Payment intent failed: ${data['error'] ?? response.body}',
+        );
     }
 
-    final clientSecret = response.data['client_secret'] as String?;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final clientSecret = data['client_secret'] as String?;
+
     if (clientSecret == null || clientSecret.isEmpty) {
       throw Exception('Invalid client secret returned from server.');
     }
 
     return clientSecret;
-  }
+
+    } catch (e) {
+      debugPrint('[Stripe] Error: $e');
+      rethrow;
+    }
+}
 
   Future<SubscriptionTransaction> verifyAndActivateSSLCommerzSubscription({
     required SubscriptionPlan plan,
@@ -182,7 +213,9 @@ Future<String> createStripePaymentIntent({
       final ref = await _profileRef(uid);
       await ref.update({'subscription': subscription.toMap()});
     } catch (e) {
-      debugPrint('[SubscriptionRepository] Firestore subscription update failed: $e');
+      debugPrint(
+        '[SubscriptionRepository] Firestore subscription update failed: $e',
+      );
       rethrow;
     }
   }

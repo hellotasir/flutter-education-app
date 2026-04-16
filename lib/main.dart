@@ -25,6 +25,7 @@ Future<void> main() async {
   await LocalNotificationService.instance.init();
   await initBackgroundService();
   Stripe.publishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY']!;
+  await Stripe.instance.applySettings();
   runApp(
     MultiProvider(
       providers: [

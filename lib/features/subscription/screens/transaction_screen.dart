@@ -46,6 +46,121 @@ class _TransactionScreenState extends State<TransactionScreen> {
     super.dispose();
   }
 
+  // ─── Refresh ──────────────────────────────────────────────────────────────
+
+  void _refresh() {
+    setState(() {
+      _future = _repo.getTransactions();
+    });
+  }
+
+  // ─── Delete all confirmation ───────────────────────────────────────────────
+
+  Future<void> _confirmDeleteAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete All Transactions'),
+        content: const Text(
+          'This will permanently delete all your payment history. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _repo.deleteAllTransactions();
+      _refresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('All transactions deleted'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  // ─── Delete single ────────────────────────────────────────────────────────
+
+  Future<void> _deleteSingle(SubscriptionTransaction tx) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Transaction'),
+        content: Text(
+          'Delete the "${tx.planName}" transaction? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await _repo.deleteTransaction(tx.id);
+      _refresh();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  // ─── Filters ──────────────────────────────────────────────────────────────
+
   List<SubscriptionTransaction> _applyFilters(
     List<SubscriptionTransaction> all,
   ) {
@@ -80,6 +195,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
     return (totalSpent: total, successCount: success, failedCount: failed);
   }
 
+  // ─── Build ────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -104,6 +221,13 @@ class _TransactionScreenState extends State<TransactionScreen> {
           'Payment History',
           style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
+        actions: [
+          IconButton(
+            onPressed: _confirmDeleteAll,
+            icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+            tooltip: 'Delete all transactions',
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Divider(
@@ -120,7 +244,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
           }
 
           if (snapshot.hasError) {
-            return _ErrorView(message: snapshot.error.toString());
+            return _ErrorView(
+              message: snapshot.error.toString(),
+              onRetry: _refresh,
+            );
           }
 
           final all = snapshot.data ?? [];
@@ -129,8 +256,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
           return CustomScrollView(
             slivers: [
-              SliverToBoxAdapter(
-                child: _SummaryBanner(stats: stats)),
+              SliverToBoxAdapter(child: _SummaryBanner(stats: stats)),
               SliverToBoxAdapter(
                 child: _FilterBar(
                   searchController: _searchController,
@@ -160,7 +286,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                   sliver: SliverList.separated(
                     itemCount: filtered.length,
-                    separatorBuilder: (_, _) => Divider(
+                    separatorBuilder: (_, __) => Divider(
                       height: 1,
                       indent: 68,
                       color: cs.outlineVariant.withValues(alpha: 0.35),
@@ -168,6 +294,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                     itemBuilder: (context, i) => _TransactionTile(
                       tx: filtered[i],
                       onTap: () => _showDetail(context, filtered[i]),
+                      onDelete: () => _deleteSingle(filtered[i]),
                     ),
                   ),
                 ),
@@ -188,6 +315,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
   }
 }
 
+// ─── Summary Banner ───────────────────────────────────────────────────────────
+
 class _SummaryBanner extends StatelessWidget {
   final ({double totalSpent, int successCount, int failedCount}) stats;
   const _SummaryBanner({required this.stats});
@@ -201,7 +330,6 @@ class _SummaryBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
-       
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: cs.primary.withValues(alpha: 0.15)),
       ),
@@ -296,6 +424,8 @@ class _MiniStat extends StatelessWidget {
     );
   }
 }
+
+// ─── Filter Bar ───────────────────────────────────────────────────────────────
 
 class _FilterBar extends StatelessWidget {
   final TextEditingController searchController;
@@ -476,10 +606,18 @@ class _StyledDropdown<T> extends StatelessWidget {
   }
 }
 
+// ─── Transaction Tile ─────────────────────────────────────────────────────────
+
 class _TransactionTile extends StatelessWidget {
   final SubscriptionTransaction tx;
   final VoidCallback onTap;
-  const _TransactionTile({required this.tx, required this.onTap});
+  final VoidCallback onDelete;
+
+  const _TransactionTile({
+    required this.tx,
+    required this.onTap,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -491,108 +629,127 @@ class _TransactionTile extends StatelessWidget {
     final isSuccess = tx.isSuccess;
     final statusColor = isSuccess ? Colors.green.shade600 : cs.error;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+    return Dismissible(
+      key: Key(tx.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: cs.error.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(Icons.delete_outline_rounded, color: cs.error),
+      ),
+      confirmDismiss: (_) async {
+        onDelete();
+        return false; // let onDelete handle it with confirmation
+      },
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  gatewayIcon,
+                  size: 20,
+                  color: cs.onSurface.withValues(alpha: 0.65),
+                ),
               ),
-              child: Icon(
-                gatewayIcon,
-                size: 20,
-                color: cs.onSurface.withValues(alpha: 0.65),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      tx.planName,
+                      style: tt.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          gatewayLabel,
+                          style: tt.labelSmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        Text(
+                          '  ·  ${_fmtDate(tx.createdAt)}',
+                          style: tt.labelSmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.35),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    tx.planName,
-                    style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    isSuccess
+                        ? '-\$${tx.amount.toStringAsFixed(2)}'
+                        : '\$${tx.amount.toStringAsFixed(2)}',
+                    style: tt.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: isSuccess ? cs.onSurface : cs.error,
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      isSuccess ? 'Paid' : 'Failed',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
                       ),
-                      const SizedBox(width: 5),
-                      Text(
-                        gatewayLabel,
-                        style: tt.labelSmall?.copyWith(
-                          color: cs.onSurface.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      Text(
-                        '  ·  ${_fmtDate(tx.createdAt)}',
-                        style: tt.labelSmall?.copyWith(
-                          color: cs.onSurface.withValues(alpha: 0.35),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  isSuccess
-                      ? '-\$${tx.amount.toStringAsFixed(2)}'
-                      : '\$${tx.amount.toStringAsFixed(2)}',
-                  style: tt.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: isSuccess ? cs.onSurface : cs.error,
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: cs.onSurface.withValues(alpha: 0.25),
                 ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isSuccess ? 'Paid' : 'Failed',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: cs.onSurface.withValues(alpha: 0.25),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -602,6 +759,8 @@ class _TransactionTile extends StatelessWidget {
       '${d.day.toString().padLeft(2, '0')}/'
       '${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
+
+// ─── Transaction Detail Sheet ─────────────────────────────────────────────────
 
 class _TransactionDetailSheet extends StatelessWidget {
   final SubscriptionTransaction tx;
@@ -772,6 +931,8 @@ class _TransactionDetailSheet extends StatelessWidget {
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 }
 
+// ─── Detail Row ───────────────────────────────────────────────────────────────
+
 class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
@@ -851,6 +1012,8 @@ class _DetailRow extends StatelessWidget {
     );
   }
 }
+
+// ─── Loading Skeleton ─────────────────────────────────────────────────────────
 
 class _LoadingSkeleton extends StatelessWidget {
   const _LoadingSkeleton();
@@ -956,9 +1119,12 @@ class _LoadingSkeleton extends StatelessWidget {
   }
 }
 
+// ─── Error View ───────────────────────────────────────────────────────────────
+
 class _ErrorView extends StatelessWidget {
   final String message;
-  const _ErrorView({required this.message});
+  final VoidCallback onRetry;
+  const _ErrorView({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -992,12 +1158,20 @@ class _ErrorView extends StatelessWidget {
                 color: cs.onSurface.withValues(alpha: 0.5),
               ),
             ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+// ─── Empty State ──────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();

@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -10,16 +11,10 @@ import 'package:flutter_education_app/features/user/models/profile_model.dart';
 import 'package:flutter_education_app/features/user/repositories/profile_repository.dart';
 import 'package:flutter_education_app/features/user/screens/profile_screen.dart';
 import 'package:flutter_education_app/others/routers/app_navigator.dart';
-import 'package:flutter_sslcommerz/model/SSLCCustomerInfoInitializer.dart'
-    show SSLCCustomerInfoInitializer;
 import 'package:flutter_sslcommerz/model/SSLCommerzInitialization.dart';
 import 'package:flutter_sslcommerz/model/SSLCurrencyType.dart';
 import 'package:flutter_sslcommerz/model/SSLCSdkType.dart';
 import 'package:flutter_sslcommerz/model/SSLCTransactionInfoModel.dart';
-import 'package:flutter_sslcommerz/model/sslproductinitilizer/NonPhysicalGoods.dart'
-    show NonPhysicalGoods;
-import 'package:flutter_sslcommerz/model/sslproductinitilizer/SSLCProductInitializer.dart'
-    show SSLCProductInitializer;
 import 'package:flutter_sslcommerz/sslcommerz.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 
@@ -235,7 +230,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           merchantCountryCode: 'US',
           currencyCode: 'USD',
         ),
-        applePay: const PaymentSheetApplePay(merchantCountryCode: 'US'),
+      
         style: ThemeMode.system,
         billingDetailsCollectionConfiguration:
             const BillingDetailsCollectionConfiguration(
