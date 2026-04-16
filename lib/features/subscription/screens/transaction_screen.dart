@@ -46,15 +46,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
     super.dispose();
   }
 
-  // ─── Refresh ──────────────────────────────────────────────────────────────
-
   void _refresh() {
     setState(() {
       _future = _repo.getTransactions();
     });
   }
 
-  // ─── Delete all confirmation ───────────────────────────────────────────────
 
   Future<void> _confirmDeleteAll() async {
     final confirmed = await showDialog<bool>(
@@ -112,7 +109,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
     }
   }
 
-  // ─── Delete single ────────────────────────────────────────────────────────
 
   Future<void> _deleteSingle(SubscriptionTransaction tx) async {
     final confirmed = await showDialog<bool>(
@@ -159,7 +155,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
     }
   }
 
-  // ─── Filters ──────────────────────────────────────────────────────────────
 
   List<SubscriptionTransaction> _applyFilters(
     List<SubscriptionTransaction> all,
@@ -195,7 +190,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
     return (totalSpent: total, successCount: success, failedCount: failed);
   }
 
-  // ─── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +280,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
                   sliver: SliverList.separated(
                     itemCount: filtered.length,
-                    separatorBuilder: (_, __) => Divider(
+                    separatorBuilder: (_, _) => Divider(
                       height: 1,
                       indent: 68,
                       color: cs.outlineVariant.withValues(alpha: 0.35),
@@ -314,8 +308,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
     );
   }
 }
-
-// ─── Summary Banner ───────────────────────────────────────────────────────────
 
 class _SummaryBanner extends StatelessWidget {
   final ({double totalSpent, int successCount, int failedCount}) stats;
@@ -425,7 +417,6 @@ class _MiniStat extends StatelessWidget {
   }
 }
 
-// ─── Filter Bar ───────────────────────────────────────────────────────────────
 
 class _FilterBar extends StatelessWidget {
   final TextEditingController searchController;
@@ -606,7 +597,6 @@ class _StyledDropdown<T> extends StatelessWidget {
   }
 }
 
-// ─── Transaction Tile ─────────────────────────────────────────────────────────
 
 class _TransactionTile extends StatelessWidget {
   final SubscriptionTransaction tx;
@@ -760,7 +750,6 @@ class _TransactionTile extends StatelessWidget {
       '${d.month.toString().padLeft(2, '0')}/${d.year}';
 }
 
-// ─── Transaction Detail Sheet ─────────────────────────────────────────────────
 
 class _TransactionDetailSheet extends StatelessWidget {
   final SubscriptionTransaction tx;
@@ -931,7 +920,6 @@ class _TransactionDetailSheet extends StatelessWidget {
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 }
 
-// ─── Detail Row ───────────────────────────────────────────────────────────────
 
 class _DetailRow extends StatelessWidget {
   final String label;
@@ -1013,7 +1001,6 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-// ─── Loading Skeleton ─────────────────────────────────────────────────────────
 
 class _LoadingSkeleton extends StatelessWidget {
   const _LoadingSkeleton();
@@ -1119,8 +1106,6 @@ class _LoadingSkeleton extends StatelessWidget {
   }
 }
 
-// ─── Error View ───────────────────────────────────────────────────────────────
-
 class _ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -1171,7 +1156,6 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// ─── Empty State ──────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState();

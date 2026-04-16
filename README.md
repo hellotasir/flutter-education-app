@@ -15,22 +15,21 @@ The system follows a **progressive interaction model**:
 1. Discover known people (students/instructors)
 2. Send friend requests to initiate connection
 3. Communicate via real-time chat
-4. Coordinate offline or location-based study sessions
+4. Distance tracker for meetup
 
-Unlike traditional education platforms, EDUMAP operates as a **geo-social learning network**, combining:
-
-- Social networking
-- Real-time communication
-- Collaborative learning
 
 ### Backend Stack
 
 | Component     | Responsibility                                             |
 | ------------- | ---------------------------------------------------------- |
-| Supabase      | Storage, Authentication and Database |
-| Firebase      | Push notifications and Database |
+| Supabase      | Storage for storing objects, Authentication for user identity and Database for keep payments history |
+| Firebase      | Database for keep user activities in the app |
 | Google Cloud  | Linked with Firebase and Supabase |
 | OpenStreetMap | Geolocation and map services |
+| ZEGO CLOUD    | For voice and video call |
+| Stripe | For subscription payment getway |
+| SSL_COMMERZ | For subscription payment getway |
+| Local Notification | For sending notification to the user |
 
 ## Key Features
 
@@ -43,6 +42,7 @@ Unlike traditional education platforms, EDUMAP operates as a **geo-social learni
 
 - Real-time chat
 - Media messaging
+- Voice and Video Call
 
 ### Location
 
@@ -54,29 +54,11 @@ Unlike traditional education platforms, EDUMAP operates as a **geo-social learni
 - Push notifications (Firebase)
 - Alerts for:
   - Friend requests
-  - Messages
 
----
-
-## Engineering Highlights
-
-- Hybrid backend orchestration (Supabase + Firebase + GCP)
-- Real-time mobile system design
-- Scalable chat architecture
-- Geo-social interaction model
-- Production-oriented Flutter architecture
-
----
-
-EDUMAP focuses on:
-
-- Trust-based connections
-- Local community building
-- Seamless online-to-offline transition
 
 ---
 
 ## Disclaimer
 
 This project is developed for **demonstration and evaluation purposes**.
-Backend services may be: Modified, Rate-limited and Disabled after evaluation
+Backend services may be: Modified, Rate-limited and Disabled after evaluation.
