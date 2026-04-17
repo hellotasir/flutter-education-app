@@ -201,7 +201,10 @@ class PaymentRepository {
   ) async {
     try {
       final ref = await _profileRef(uid);
-      await ref.update({'subscription': subscription.toMap()});
+      await ref.update({
+        'subscription': subscription.toMap(),
+        'is_verified': true,
+      });
     } catch (e) {
       rethrow;
     }
