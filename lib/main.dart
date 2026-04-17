@@ -1,11 +1,11 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_education_app/features/app/screens/splash_screen.dart';
+import 'package:flutter_education_app/features/app/views/screens/splash_screen.dart';
 import 'package:flutter_education_app/firebase_options.dart';
-import 'package:flutter_education_app/features/app/widgets/material_widget.dart';
-import 'package:flutter_education_app/others/services/local/background_notification_service.dart';
-import 'package:flutter_education_app/others/services/local/local_notification_service.dart';
+import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/services/local/background_notification_service.dart';
+import 'package:flutter_education_app/core/services/local/local_notification_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';

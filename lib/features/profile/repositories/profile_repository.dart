@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_education_app/features/profile/models/profile_model.dart';
-import 'package:flutter_education_app/others/repositories/firestore_repository.dart';
+import 'package:flutter_education_app/features/app/repositories/firestore_repository.dart';
 
 class ProfileRepository implements FirestoreRepository<ProfileModel> {
   @override
