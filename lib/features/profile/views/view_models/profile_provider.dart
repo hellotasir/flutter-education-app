@@ -1,25 +1,25 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/features/app/repositories/storage_repository.dart';
 import 'package:flutter_education_app/features/profile/views/widgets/image_source_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_education_app/features/profile/models/profile_model.dart';
 import 'package:flutter_education_app/features/profile/repositories/profile_repository.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
-import 'package:flutter_education_app/core/services/cloud/firestore_service.dart';
-import 'package:flutter_education_app/core/services/cloud/supabase_storage_service.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
+import 'package:flutter_education_app/core/services/cloud/database_service.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>(
   (_) => AuthRepository(),
 );
 
-final firestoreServiceProvider = Provider<FirestoreService<ProfileModel>>(
-  (_) => FirestoreService<ProfileModel>(ProfileRepository()),
+final firestoreServiceProvider = Provider<DatabaseService<ProfileModel>>(
+  (_) => DatabaseService<ProfileModel>(ProfileRepository()),
 );
 
-final storageServiceProvider = Provider<SupabaseStorageService>(
-  (_) => SupabaseStorageService(),
+final storageServiceProvider = Provider<StorageRepository>(
+  (_) => StorageRepository(),
 );
 
 final imagePickerProvider = Provider<ImagePicker>((_) => ImagePicker());
@@ -73,9 +73,9 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   final String? viewUserId;
 
   AuthRepository get _authRepo => ref.read(authRepositoryProvider);
-  FirestoreService<ProfileModel> get _service =>
+  DatabaseService<ProfileModel> get _service =>
       ref.read(firestoreServiceProvider);
-  SupabaseStorageService get _storage => ref.read(storageServiceProvider);
+  StorageRepository get _storage => ref.read(storageServiceProvider);
   ImagePicker get _picker => ref.read(imagePickerProvider);
 
   String? get _currentUserId => _authRepo.currentUser?.id;
@@ -196,11 +196,15 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     state = state.copyWith(uploadingAvatar: true);
     try {
       final profile = state.profile!;
-      final rawUrl = await _storage.uploadAvatar(
-        profile.userId,
-        profile.currentMode,
-        file,
+      final result = await _storage.uploadAvatar(
+        userId: profile.userId,
+        roleLabel: profile.currentMode,
+        file: file,
       );
+
+      if (result.isFailure) throw Exception(result.error);
+
+      final rawUrl = result.data!;
       final oldUrl = profile.profile.profilePhoto;
       if (oldUrl.isNotEmpty) await NetworkImage(oldUrl).evict();
       final freshUrl = _cacheBust(rawUrl);
@@ -223,7 +227,15 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     state = state.copyWith(uploadingCover: true);
     try {
       final profile = state.profile!;
-      final rawUrl = await _storage.uploadCoverPhoto(profile.userId, file);
+      // Fixed: use named parameters to match StorageRepository signature
+      final result = await _storage.uploadCoverPhoto(
+        userId: profile.userId,
+        file: file,
+      );
+
+      if (result.isFailure) throw Exception(result.error);
+
+      final rawUrl = result.data!;
       final oldUrl = profile.profile.coverPhoto;
       if (oldUrl.isNotEmpty) await NetworkImage(oldUrl).evict();
       final freshUrl = _cacheBust(rawUrl);

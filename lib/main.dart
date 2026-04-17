@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_education_app/features/app/views/screens/splash_screen.dart';
 import 'package:flutter_education_app/firebase_options.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
 import 'package:flutter_education_app/core/services/local/background_notification_service.dart';
 import 'package:flutter_education_app/core/services/local/local_notification_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

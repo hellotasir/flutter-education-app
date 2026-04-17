@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
-import 'package:flutter_education_app/features/app/views/widgets/loading_widget.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
+import 'package:flutter_education_app/core/widgets/loading_widget.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
 import 'package:flutter_education_app/features/subscription/views/screens/payment_screen.dart';
 import 'package:flutter_education_app/features/subscription/views/screens/transaction_screen.dart';

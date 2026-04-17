@@ -1,14 +1,16 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
+import 'package:flutter_education_app/features/auth/views/screens/auth_screen.dart';
+import 'package:flutter_education_app/features/auth/views/view_models/auth_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_education_app/core/consts/app_details.dart';
 import 'package:flutter_education_app/core/routers/app_navigator.dart';
-import 'package:flutter_education_app/features/app/views/screens/auth_screen.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
-import 'package:flutter_education_app/features/app/views/widgets/snackbar_widget.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/snackbar_widget.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'reset_password_screen.dart';
 import 'signup_screen.dart';
 
 class _FieldLabel extends StatelessWidget {
@@ -20,16 +22,15 @@ class _FieldLabel extends StatelessWidget {
       Text(text, style: Theme.of(context).textTheme.labelMedium);
 }
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
+class _LoginScreenState extends ConsumerState<LoginScreen>
     with SingleTickerProviderStateMixin {
-  final _repo = AuthRepository();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
@@ -39,12 +40,6 @@ class _LoginScreenState extends State<LoginScreen>
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
 
-  void _navigate(Widget screen) =>
-      AppNavigator(screen: screen).navigate(context);
-
-  void _showSnackbar(String message) =>
-      SnackbarWidget(message: message).showSnackbar(context);
-
   @override
   void initState() {
     super.initState();
@@ -52,7 +47,6 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
-
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
         .animate(
@@ -68,6 +62,12 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
+  void _navigate(Widget screen) =>
+      AppNavigator(screen: screen).navigate(context);
+
+  void _showSnackbar(String message) =>
+      SnackbarWidget(message: message).showSnackbar(context);
+
   Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -79,9 +79,8 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() => _loading = true);
     try {
-      await _repo.login(email, password);
-      if (mounted) AppNavigator(screen: AuthScreen()).navigate(context);
-     
+      await ref.read(authRepositoryProvider).login(email, password);
+      if (mounted) AppNavigator(screen: const AuthScreen()).navigate(context);
     } catch (e) {
       if (mounted) _showSnackbar(e.toString());
     } finally {
@@ -110,14 +109,15 @@ class _LoginScreenState extends State<LoginScreen>
     final idToken = googleUser.authentication.idToken;
     if (idToken == null) throw AuthException('No ID Token found.');
 
-    await _repo.signInWithIdToken(
-      provider: OAuthProvider.google,
-      idToken: idToken,
-      accessToken: authorization.accessToken,
-    );
+    await ref
+        .read(authRepositoryProvider)
+        .signInWithIdToken(
+          provider: OAuthProvider.google,
+          idToken: idToken,
+          accessToken: authorization.accessToken,
+        );
 
-    if (mounted) AppNavigator(screen: AuthScreen()).navigate(context);
-  
+    if (mounted) AppNavigator(screen: const AuthScreen()).navigate(context);
   }
 
   @override
@@ -154,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                     const SizedBox(height: 36),
-                    _FieldLabel('Email'),
+                    const _FieldLabel('Email'),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _emailController,
@@ -165,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _FieldLabel('Password'),
+                    const _FieldLabel('Password'),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _passwordController,
@@ -186,16 +186,8 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                     ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => _navigate(
-                          ResetPasswordScreen(authRepository: _repo),
-                        ),
-                        child: const Text('Forgot password?'),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+
+                    const SizedBox(height: 28),
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -244,7 +236,6 @@ class _LoginScreenState extends State<LoginScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Google "G" logo via SVG-like painting using colored squares
                             SizedBox(
                               width: 20,
                               height: 20,
@@ -297,36 +288,29 @@ class _GoogleLogoPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
 
-    // Draw the colored arc segments
     final colors = [
-      const Color(0xFF4285F4), // Blue
-      const Color(0xFF34A853), // Green
-      const Color(0xFFFBBC05), // Yellow
-      const Color(0xFFEA4335), // Red
+      const Color(0xFF4285F4),
+      const Color(0xFF34A853),
+      const Color(0xFFFBBC05),
+      const Color(0xFFEA4335),
     ];
-    final startAngles = [-0.1, 1.57, 3.14, 4.71]; // roughly quarter turns
+    final startAngles = [-0.1, 1.57, 3.14, 4.71];
     final sweepAngles = [1.67, 1.57, 1.57, 1.67];
 
     for (int i = 0; i < 4; i++) {
-      final paint = Paint()
-        ..color = colors[i]
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = size.width * 0.22
-        ..strokeCap = StrokeCap.butt;
-
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius * 0.72),
         startAngles[i],
         sweepAngles[i],
         false,
-        paint,
+        Paint()
+          ..color = colors[i]
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = size.width * 0.22
+          ..strokeCap = StrokeCap.butt,
       );
     }
 
-    // White cutout for the "G" opening + horizontal bar area
-    final whitePaint = Paint()..color = Colors.white;
-
-    // Right-side opening gap
     canvas.drawRect(
       Rect.fromLTWH(
         size.width * 0.5,
@@ -334,11 +318,9 @@ class _GoogleLogoPainter extends CustomPainter {
         size.width * 0.55,
         size.height * 0.3,
       ),
-      whitePaint,
+      Paint()..color = Colors.white,
     );
 
-    // Blue horizontal bar (the crossbar of the G)
-    final barPaint = Paint()..color = const Color(0xFF4285F4);
     canvas.drawRect(
       Rect.fromLTWH(
         size.width * 0.5,
@@ -346,7 +328,7 @@ class _GoogleLogoPainter extends CustomPainter {
         size.width * 0.5,
         size.height * 0.18,
       ),
-      barPaint,
+      Paint()..color = const Color(0xFF4285F4),
     );
   }
 

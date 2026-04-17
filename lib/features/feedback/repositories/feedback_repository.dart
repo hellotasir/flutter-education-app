@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_education_app/features/feedback/models/feedback_model.dart';
-import 'package:flutter_education_app/features/app/repositories/firestore_repository.dart';
+import 'package:flutter_education_app/features/app/repositories/database_repository.dart';
 
-class FeedbackRepository implements FirestoreRepository<FeedbackModel> {
+class FeedbackRepository implements DatabaseRepository<FeedbackModel> {
   @override
   List<String> get collectionPath => ['feedback'];
 

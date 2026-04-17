@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
 
 enum ErrorType { network, server, notFound, unknown }
 

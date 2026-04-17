@@ -1,9 +1,9 @@
 // ignore_for_file: use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
-import 'package:flutter_education_app/features/app/views/widgets/app_snackbar.dart';
-import 'package:flutter_education_app/features/app/views/widgets/loading_widget.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
+import 'package:flutter_education_app/core/widgets/app_snackbar.dart';
+import 'package:flutter_education_app/core/widgets/loading_widget.dart';
 import 'package:flutter_education_app/features/subscription/models/subscription_plan.dart';
 import 'package:flutter_education_app/features/subscription/views/view_models/payment_notifier.dart';
 import 'package:flutter_education_app/features/subscription/views/screens/subscription_screen.dart';

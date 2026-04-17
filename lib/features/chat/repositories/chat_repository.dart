@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/chat/models/conversation_model.dart';
 import 'package:flutter_education_app/features/chat/models/friend_request_model.dart';
 import 'package:flutter_education_app/features/chat/models/user_preference_model.dart';
-import 'package:flutter_education_app/core/services/cloud/supabase_storage_service.dart';
+import 'package:flutter_education_app/features/app/repositories/storage_repository.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -218,9 +218,7 @@ class _LocalCache {
 
 class _SerialQueue {
   final _queues = <String, Future<void>>{};
-
   final _inflight = <String, int>{};
-
   static const int _maxConcurrent = 1;
 
   bool isBusy(String conversationId) =>
@@ -271,12 +269,17 @@ class _LruCache<K, V> {
 class ChatRepository {
   ChatRepository({
     FirebaseFirestore? firestore,
-    SupabaseStorageService? storageService,
+    StorageRepository? storageRepository,
   }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _storageService = storageService ?? SupabaseStorageService();
+       _storageRepository = storageRepository ?? StorageRepository();
 
   final FirebaseFirestore _firestore;
-  final SupabaseStorageService _storageService;
+
+  /// Storage access is now done through [StorageRepository] so that all
+  /// upload results are wrapped in [StorageResult] and errors are handled
+  /// consistently, without exposing the low-level [StorageService] directly.
+  final StorageRepository _storageRepository;
+
   final _LocalCache _cache = _LocalCache.instance;
   final _SerialQueue _sendQueue = _SerialQueue();
   final _LruCache<String, Map<String, dynamic>> _profileCache = _LruCache(128);
@@ -302,6 +305,10 @@ class ChatRepository {
 
   bool isConversationBusy(String conversationId) =>
       _sendQueue.isBusy(conversationId);
+
+  // ──────────────────────────────────────────────
+  // Profile helpers
+  // ──────────────────────────────────────────────
 
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     if (userId.isEmpty) return null;
@@ -344,6 +351,10 @@ class ChatRepository {
     };
   }
 
+  // ──────────────────────────────────────────────
+  // Conversations
+  // ──────────────────────────────────────────────
+
   Stream<List<ConversationModel>> watchConversations(String userId) {
     late StreamController<List<ConversationModel>> controller;
     StreamSubscription<List<ConversationModel>>? firestoreSub;
@@ -372,47 +383,42 @@ class ChatRepository {
             .snapshots()
             .map((snap) => snap.docs.map((d) => d.id).toSet());
 
-        firestoreSub =
-            Rx.combineLatest2<
-                  QuerySnapshot<Map<String, dynamic>>,
-                  Set<String>,
-                  List<ConversationModel>
-                >(convStream, presenceStream, (convSnap, onlineIds) {
-                  final list = convSnap.docs
-                      .map(ConversationModel.fromSnapshot)
-                      .toList();
+        firestoreSub = Rx.combineLatest2<
+              QuerySnapshot<Map<String, dynamic>>,
+              Set<String>,
+              List<ConversationModel>
+            >(convStream, presenceStream, (convSnap, onlineIds) {
+              final list = convSnap.docs
+                  .map(ConversationModel.fromSnapshot)
+                  .toList();
 
-        
-                  list.sort((a, b) {
-                    final aOnline = a.participantIds.any(
-                      (id) => id != userId && onlineIds.contains(id),
-                    );
-                    final bOnline = b.participantIds.any(
-                      (id) => id != userId && onlineIds.contains(id),
-                    );
-                    if (aOnline != bOnline) return aOnline ? -1 : 1;
+              list.sort((a, b) {
+                final aOnline = a.participantIds.any(
+                  (id) => id != userId && onlineIds.contains(id),
+                );
+                final bOnline = b.participantIds.any(
+                  (id) => id != userId && onlineIds.contains(id),
+                );
+                if (aOnline != bOnline) return aOnline ? -1 : 1;
+                final aTime = a.lastMessageAt ?? a.createdAt;
+                final bTime = b.lastMessageAt ?? b.createdAt;
+                return bTime.compareTo(aTime);
+              });
 
-                    final aTime = a.lastMessageAt ?? a.createdAt;
-                    final bTime = b.lastMessageAt ?? b.createdAt;
-                    return bTime.compareTo(aTime);
-                  });
+              _cache.upsertConversations(list);
 
-                  _cache.upsertConversations(list);
+              final buffer = StringBuffer();
+              buffer.writeln('Conversations Update: ${DateTime.now()}');
+              buffer.writeln('Total: ${list.length}');
+              for (final c in list) {
+                buffer.writeln(
+                  'ID: ${c.id}, LastMsg: ${c.lastMessageAt}, Participants: ${c.participantIds}',
+                );
+              }
+              debugPrint(buffer.toString());
 
-         
-                  final buffer = StringBuffer();
-                  buffer.writeln('Conversations Update: ${DateTime.now()}');
-                  buffer.writeln('Total: ${list.length}');
-                  for (final c in list) {
-                    buffer.writeln(
-                      'ID: ${c.id}, LastMsg: ${c.lastMessageAt}, Participants: ${c.participantIds}',
-                    );
-                  }
-                  debugPrint(buffer.toString());
-
-                  return list;
-                })
-                .listen(controller.add, onError: controller.addError);
+              return list;
+            }).listen(controller.add, onError: controller.addError);
       },
       onCancel: () => firestoreSub?.cancel(),
     );
@@ -538,6 +544,10 @@ class ChatRepository {
 
   Future<void> deleteConversation(String conversationId) =>
       _conversations.doc(conversationId).update({'is_active': false});
+
+  // ──────────────────────────────────────────────
+  // Messages
+  // ──────────────────────────────────────────────
 
   Future<ChatMessageModel> sendMessage({
     required String conversationId,
@@ -688,7 +698,6 @@ class ChatRepository {
                   .map((d) => ChatMessageModel.fromMap(d.data(), id: d.id))
                   .toList();
               list.sort((a, b) => a.sortKey.compareTo(b.sortKey));
-
               _cache.upsertMessages(list);
               return list;
             })
@@ -699,7 +708,6 @@ class ChatRepository {
 
     return controller.stream;
   }
-
 
   Future<void> markAsRead(String conversationId, String userId) async {
     final snap = await _messages(
@@ -731,26 +739,57 @@ class ChatRepository {
     await _cache.softDeleteMessage(messageId);
   }
 
+  // ──────────────────────────────────────────────
+  // Storage — now via StorageRepository
+  // ──────────────────────────────────────────────
+
+  /// Uploads a chat media file (image, video, audio, document).
+  /// Throws [Exception] if the upload fails, so callers can handle it normally.
   Future<String> uploadChatMedia({
     required File file,
     required String senderId,
     required String folder,
-  }) => _storageService.uploadChatMedia(
-    file: file,
-    senderId: senderId,
-    folder: folder,
-  );
+  }) async {
+    final result = await _storageRepository.uploadChatMedia(
+      file: file,
+      senderId: senderId,
+      folder: folder,
+    );
+    if (result.isFailure) throw Exception(result.error);
+    return result.data!;
+  }
 
+  /// Uploads a video thumbnail.
+  /// Throws [Exception] if the upload fails.
   Future<String> uploadThumbnail({
     required File thumbnailFile,
     required String senderId,
-  }) => _storageService.uploadThumbnail(
-    thumbnailFile: thumbnailFile,
-    senderId: senderId,
-  );
+  }) async {
+    final result = await _storageRepository.uploadThumbnail(
+      thumbnailFile: thumbnailFile,
+      senderId: senderId,
+    );
+    if (result.isFailure) throw Exception(result.error);
+    return result.data!;
+  }
 
-  Future<String> uploadGroupPhoto(File imageFile, String adminUserId) =>
-      _storageService.uploadGroupPhoto(imageFile, adminUserId);
+  /// Uploads a group conversation photo.
+  /// Throws [Exception] if the upload fails.
+  Future<String> uploadGroupPhoto({
+    required File imageFile,
+    required String adminUserId,
+  }) async {
+    final result = await _storageRepository.uploadGroupPhoto(
+      imageFile: imageFile,
+      adminUserId: adminUserId,
+    );
+    if (result.isFailure) throw Exception(result.error);
+    return result.data!;
+  }
+
+  // ──────────────────────────────────────────────
+  // Typing indicators (Supabase Realtime)
+  // ──────────────────────────────────────────────
 
   Stream<String?> watchTypingUser(String conversationId) {
     final typingController = StreamController<String?>.broadcast();
@@ -792,6 +831,10 @@ class ChatRepository {
           },
         );
   }
+
+  // ──────────────────────────────────────────────
+  // Friend requests
+  // ──────────────────────────────────────────────
 
   Future<FriendRequestModel> sendFriendRequest({
     required String fromUserId,
@@ -935,6 +978,10 @@ class ChatRepository {
   Future<void> cancelFriendRequest(String requestId) =>
       _friendRequests.doc(requestId).delete();
 
+  // ──────────────────────────────────────────────
+  // Friends list
+  // ──────────────────────────────────────────────
+
   Future<List<Map<String, dynamic>>> getFriendsList(String userId) async {
     final results = await Future.wait([
       _friendRequests
@@ -989,7 +1036,9 @@ class ChatRepository {
     }
     await Future.wait(chunks.map(fetchChunk));
 
-    final missing = allFriendIds.where((id) => !foundIds.contains(id)).toList();
+    final missing = allFriendIds
+        .where((id) => !foundIds.contains(id))
+        .toList();
     final missingChunks = <List<String>>[];
     for (var i = 0; i < missing.length; i += 10) {
       missingChunks.add(missing.sublist(i, (i + 10).clamp(0, missing.length)));
@@ -1014,6 +1063,10 @@ class ChatRepository {
 
     return out;
   }
+
+  // ──────────────────────────────────────────────
+  // Group members
+  // ──────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> getGroupMembers(
     String conversationId,
@@ -1081,6 +1134,10 @@ class ChatRepository {
     return out;
   }
 
+  // ──────────────────────────────────────────────
+  // User search
+  // ──────────────────────────────────────────────
+
   Future<List<Map<String, dynamic>>> searchUsersByUsername(
     String query, {
     int limit = 20,
@@ -1093,6 +1150,10 @@ class ChatRepository {
         .get();
     return snap.docs.map((d) => _flattenProfile(d.id, d.data())).toList();
   }
+
+  // ──────────────────────────────────────────────
+  // Presence
+  // ──────────────────────────────────────────────
 
   Future<void> setOnline(String userId) => _presence.doc(userId).set({
     'is_online': true,
@@ -1182,6 +1243,10 @@ class ChatRepository {
         return total;
       });
 
+  // ──────────────────────────────────────────────
+  // JSON helpers
+  // ──────────────────────────────────────────────
+
   ConversationModel? _conversationFromJson(Map<String, dynamic> j) {
     try {
       return ConversationModel(
@@ -1223,6 +1288,10 @@ class ChatRepository {
   }
 }
 
+// ──────────────────────────────────────────────
+// Utilities
+// ──────────────────────────────────────────────
+
 class Rx {
   static Stream<R> combineLatest2<A, B, R>(
     Stream<A> streamA,
@@ -1263,6 +1332,10 @@ class Rx {
     return controller.stream;
   }
 }
+
+// ──────────────────────────────────────────────
+// Exceptions
+// ──────────────────────────────────────────────
 
 class MessageLimitException implements Exception {
   const MessageLimitException(this.message);

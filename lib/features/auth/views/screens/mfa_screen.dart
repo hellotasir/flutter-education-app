@@ -2,47 +2,27 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
+import 'package:flutter_education_app/features/auth/views/view_models/auth_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_education_app/core/routers/app_navigator.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
-import 'package:flutter_education_app/features/app/views/widgets/snackbar_widget.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/snackbar_widget.dart';
 import 'package:flutter_education_app/features/app/views/widgets/mfa_widget.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-class MfaScreen extends StatefulWidget {
-  const MfaScreen({super.key, required this.authRepository});
-
-  final AuthRepository authRepository;
+class MfaScreen extends ConsumerStatefulWidget {
+  const MfaScreen({super.key});
 
   static void open(BuildContext context, AuthRepository authRepository) {
-    AppNavigator(
-      screen: MfaScreen(authRepository: authRepository),
-    ).navigate(context);
+    AppNavigator(screen: const MfaScreen()).navigate(context);
   }
 
   @override
-  State<MfaScreen> createState() => _MfaScreenState();
+  ConsumerState<MfaScreen> createState() => _MfaScreenState();
 }
 
-class _MfaScreenState extends State<MfaScreen> {
-  final authRepository = AuthRepository();
-  _MfaStep _step = _MfaStep.checking;
-  bool _isLoading = false;
-
-  String? _factorId;
-  String? _totpSecret;
-  String? _qrSvg;
-  List<Factor> _factors = [];
-
+class _MfaScreenState extends ConsumerState<MfaScreen> {
   final _codeController = TextEditingController();
-
-  AuthRepository get _repo => widget.authRepository;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkMfaStatus();
-  }
 
   @override
   void dispose() {
@@ -50,92 +30,13 @@ class _MfaScreenState extends State<MfaScreen> {
     super.dispose();
   }
 
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
   void _showError(String message) {
     if (!mounted) return;
     SnackbarWidget(message: message).showSnackbar(context);
-  }
-
-  Future<void> _checkMfaStatus() async {
-    setState(() => _isLoading = true);
-    try {
-      _factors = await _repo.mfaListVerifiedFactors();
-      setState(() {
-        _step = _factors.isNotEmpty ? _MfaStep.enabled : _MfaStep.intro;
-      });
-    } catch (e) {
-      _showError('Could not load MFA status');
-      setState(() => _step = _MfaStep.intro);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _startEnrollment() async {
-    setState(() => _isLoading = true);
-    try {
-      final response = await _repo.mfaEnroll(issuer: 'EduApp');
-      _factorId = response.id;
-      _totpSecret = response.totp?.secret;
-      _qrSvg = response.totp?.qrCode;
-      setState(() => _step = _MfaStep.scan);
-    } catch (e) {
-      _showError('Enrollment failed');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _verifyAndActivate() async {
-    final code = _codeController.text.trim();
-    if (code.length != 6) {
-      _showError('Please enter the 6-digit code from your authenticator app.');
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    try {
-      await _repo.mfaVerifyEnrollment(factorId: _factorId!, code: code);
-      _codeController.clear();
-      setState(() => _step = _MfaStep.enabled);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Two-factor authentication enabled!')),
-        );
-      }
-    } catch (e) {
-      _showError('Verification failed. Please check the code and try again.');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _unenroll() async {
-    final confirm = await _showConfirmDialog(
-      title: 'Disable 2FA?',
-      body:
-          'This will remove two-factor authentication from your account. Are you sure?',
-      confirmLabel: 'Disable',
-      isDestructive: true,
-    );
-    if (confirm != true) return;
-
-    setState(() => _isLoading = true);
-    try {
-      await _repo.mfaUnenroll(_factors.first.id);
-      setState(() {
-        _factors = [];
-        _step = _MfaStep.intro;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Two-factor authentication disabled.')),
-        );
-      }
-    } catch (e) {
-      _showError('Failed to disable 2FA: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
   }
 
   Future<bool?> _showConfirmDialog({
@@ -166,8 +67,68 @@ class _MfaScreenState extends State<MfaScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Actions — delegate to notifier
+  // ---------------------------------------------------------------------------
+
+  Future<void> _startEnrollment() async {
+    try {
+      await ref.read(mfaNotifierProvider.notifier).startEnrollment();
+    } catch (_) {
+      _showError('Enrollment failed');
+    }
+  }
+
+  Future<void> _verifyAndActivate() async {
+    final code = _codeController.text.trim();
+    if (code.length != 6) {
+      _showError('Please enter the 6-digit code from your authenticator app.');
+      return;
+    }
+    try {
+      await ref.read(mfaNotifierProvider.notifier).verifyAndActivate(code);
+      _codeController.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Two-factor authentication enabled!')),
+        );
+      }
+    } catch (_) {
+      _showError('Verification failed. Please check the code and try again.');
+    }
+  }
+
+  Future<void> _unenroll() async {
+    final confirm = await _showConfirmDialog(
+      title: 'Disable 2FA?',
+      body:
+          'This will remove two-factor authentication from your account. '
+          'Are you sure?',
+      confirmLabel: 'Disable',
+      isDestructive: true,
+    );
+    if (confirm != true) return;
+
+    try {
+      await ref.read(mfaNotifierProvider.notifier).unenroll();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Two-factor authentication disabled.')),
+        );
+      }
+    } catch (_) {
+      _showError('Failed to disable 2FA.');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(mfaNotifierProvider);
+
     return MaterialWidget(
       child: Scaffold(
         appBar: AppBar(
@@ -178,27 +139,31 @@ class _MfaScreenState extends State<MfaScreen> {
           ),
         ),
         body: MfaWidget(
-          authRepository: authRepository,
+          authRepository: ref.read(authRepositoryProvider),
           child: SafeArea(
-            child: _isLoading && _step == _MfaStep.checking
+            child: state.step == MfaStep.checking && state.isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _buildBody(),
+                : _buildBody(state),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBody() {
-    return switch (_step) {
-      _MfaStep.checking => const Center(child: CircularProgressIndicator()),
-      _MfaStep.intro => _buildIntroView(),
-      _MfaStep.scan => _buildScanView(),
-      _MfaStep.enabled => _buildEnabledView(),
+  Widget _buildBody(MfaState state) {
+    return switch (state.step) {
+      MfaStep.checking => const Center(child: CircularProgressIndicator()),
+      MfaStep.intro => _buildIntroView(state),
+      MfaStep.scan => _buildScanView(state),
+      MfaStep.enabled => _buildEnabledView(state),
     };
   }
 
-  Widget _buildIntroView() {
+  // ---------------------------------------------------------------------------
+  // Intro
+  // ---------------------------------------------------------------------------
+
+  Widget _buildIntroView(MfaState state) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -230,7 +195,9 @@ class _MfaScreenState extends State<MfaScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            "Add an extra layer of security to your account. After enabling 2FA, you'll need to enter a 6-digit code from your authenticator app when signing in.",
+            "Add an extra layer of security to your account. After enabling "
+            "2FA, you'll need to enter a 6-digit code from your authenticator "
+            "app when signing in.",
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.65),
             ),
@@ -259,15 +226,15 @@ class _MfaScreenState extends State<MfaScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _isLoading ? null : _startEnrollment,
-              icon: _isLoading
+              onPressed: state.isLoading ? null : _startEnrollment,
+              icon: state.isLoading
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.add_rounded),
-              label: Text(_isLoading ? 'Setting up…' : 'Enable 2FA'),
+              label: Text(state.isLoading ? 'Setting up…' : 'Enable 2FA'),
             ),
           ),
         ],
@@ -275,7 +242,11 @@ class _MfaScreenState extends State<MfaScreen> {
     );
   }
 
-  Widget _buildScanView() {
+  // ---------------------------------------------------------------------------
+  // Scan / verify
+  // ---------------------------------------------------------------------------
+
+  Widget _buildScanView(MfaState state) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -293,7 +264,8 @@ class _MfaScreenState extends State<MfaScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Open your authenticator app and scan the QR code below, or enter the secret key manually.',
+            'Open your authenticator app and scan the QR code below, or enter '
+            'the secret key manually.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.65),
             ),
@@ -308,7 +280,7 @@ class _MfaScreenState extends State<MfaScreen> {
                 borderRadius: BorderRadius.circular(12),
                 color: colorScheme.surfaceContainerHighest,
               ),
-              child: _qrSvg != null
+              child: state.qrSvg != null
                   ? const Center(
                       child: Icon(Icons.qr_code_2_rounded, size: 120),
                     )
@@ -316,7 +288,7 @@ class _MfaScreenState extends State<MfaScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          if (_totpSecret != null) ...[
+          if (state.totpSecret != null) ...[
             Text(
               'Manual entry key',
               style: theme.textTheme.labelMedium?.copyWith(
@@ -334,7 +306,7 @@ class _MfaScreenState extends State<MfaScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      _totpSecret!,
+                      state.totpSecret!,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontFamily: 'monospace',
                         letterSpacing: 1.5,
@@ -345,7 +317,7 @@ class _MfaScreenState extends State<MfaScreen> {
                     icon: const Icon(Icons.copy_rounded, size: 18),
                     visualDensity: VisualDensity.compact,
                     onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _totpSecret!));
+                      Clipboard.setData(ClipboardData(text: state.totpSecret!));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Secret key copied')),
                       );
@@ -364,7 +336,8 @@ class _MfaScreenState extends State<MfaScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'After scanning, enter the 6-digit code shown in your authenticator app to confirm setup.',
+            'After scanning, enter the 6-digit code shown in your authenticator '
+            'app to confirm setup.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurface.withOpacity(0.6),
             ),
@@ -387,22 +360,23 @@ class _MfaScreenState extends State<MfaScreen> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _isLoading ? null : _verifyAndActivate,
-              icon: _isLoading
+              onPressed: state.isLoading ? null : _verifyAndActivate,
+              icon: state.isLoading
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.verified_rounded),
-              label: Text(_isLoading ? 'Verifying…' : 'Verify & Enable'),
+              label: Text(state.isLoading ? 'Verifying…' : 'Verify & Enable'),
             ),
           ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () => setState(() => _step = _MfaStep.intro),
+              onPressed: () =>
+                  ref.read(mfaNotifierProvider.notifier).cancelScan(),
               child: const Text('Cancel'),
             ),
           ),
@@ -411,7 +385,7 @@ class _MfaScreenState extends State<MfaScreen> {
     );
   }
 
-  Widget _buildEnabledView() {
+  Widget _buildEnabledView(MfaState state) {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
@@ -443,7 +417,8 @@ class _MfaScreenState extends State<MfaScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            "Your account is protected with two-factor authentication. You'll be asked for a code each time you sign in.",
+            "Your account is protected with two-factor authentication. "
+            "You'll be asked for a code each time you sign in.",
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurface.withOpacity(0.65),
             ),
@@ -453,12 +428,12 @@ class _MfaScreenState extends State<MfaScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: _isLoading ? null : _unenroll,
+              onPressed: state.isLoading ? null : _unenroll,
               icon: const Icon(Icons.remove_circle_outline_rounded),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.red.shade600,
               ),
-              label: Text(_isLoading ? 'Disabling…' : 'Disable 2FA'),
+              label: Text(state.isLoading ? 'Disabling…' : 'Disable 2FA'),
             ),
           ),
           const SizedBox(height: 12),
@@ -475,7 +450,9 @@ class _MfaScreenState extends State<MfaScreen> {
   }
 }
 
-enum _MfaStep { checking, intro, scan, enabled }
+// ---------------------------------------------------------------------------
+// _BenefitTile — internal to MFA screen
+// ---------------------------------------------------------------------------
 
 class _BenefitTile extends StatelessWidget {
   const _BenefitTile({

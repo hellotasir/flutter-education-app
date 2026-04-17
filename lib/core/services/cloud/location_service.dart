@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -21,18 +23,14 @@ class GeocodingException implements Exception {
   final String message;
 }
 
-/// Thin wrapper around OpenStreetMap Nominatim so the rest of the service
-/// never has to know about HTTP or JSON parsing.
 class _NominatimClient {
   static const _baseUrl = 'https://nominatim.openstreetmap.org';
 
-  // Nominatim requires a meaningful User-Agent string.
   static const _headers = {
     'User-Agent': 'FlutterEducationApp/1.0 (your@email.com)',
     'Accept-Language': 'en',
   };
 
-  /// Reverse-geocode: coordinates → address JSON map.
   Future<Map<String, dynamic>> reverseGeocode(double lat, double lng) async {
     final uri = Uri.parse('$_baseUrl/reverse?format=jsonv2&lat=$lat&lon=$lng');
     final response = await http.get(uri, headers: _headers);
@@ -44,7 +42,6 @@ class _NominatimClient {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-  /// Forward-geocode: address string → list of result JSON maps.
   Future<List<Map<String, dynamic>>> forwardGeocode(String query) async {
     final uri = Uri.parse(
       '$_baseUrl/search?format=jsonv2&q=${Uri.encodeComponent(query)}&limit=1',
@@ -67,10 +64,6 @@ class LocationService {
 
   final LocationRepository _repo;
   final _NominatimClient _nominatim;
-
-  // ---------------------------------------------------------------------------
-  // Device position
-  // ---------------------------------------------------------------------------
 
   Future<Position> _acquirePosition() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -99,7 +92,6 @@ class LocationService {
       desiredAccuracy: LocationAccuracy.high,
     );
   }
-
 
   Future<AddressComponents> _reverseGeocode(double lat, double lng) async {
     try {
@@ -139,7 +131,6 @@ class LocationService {
     }
   }
 
-
   Future<({double lat, double lng})> _forwardGeocodeCoords(
     String rawAddress,
   ) async {
@@ -150,7 +141,6 @@ class LocationService {
       lng: double.parse(results.first['lon'] as String),
     );
   }
-
 
   Future<LocationModel> saveCurrentLocation({
     required String userId,
@@ -192,7 +182,6 @@ class LocationService {
     bool isDefault = false,
     bool isVisible = true,
   }) async {
-    // Single forward-geocode call; reuse coords for both address + LatLng.
     final coords = await _forwardGeocodeCoords(rawAddress);
     final address = await _reverseGeocode(coords.lat, coords.lng);
     final now = DateTime.now();
@@ -248,7 +237,6 @@ class LocationService {
 
     return _haversineKm(locA.coordinates, locB.coordinates);
   }
-
 
   double _haversineKm(LatLng a, LatLng b) {
     const r = 6371.0;

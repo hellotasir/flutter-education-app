@@ -2,11 +2,10 @@ import 'dart:io';
 import 'package:mime/mime.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class SupabaseStorageService {
-  SupabaseStorageService();
+class StorageService {
+  StorageService();
 
   final String bucket = 'user-media';
-
   static const _chatBucket = 'chat-media';
 
   SupabaseClient get _client => Supabase.instance.client;

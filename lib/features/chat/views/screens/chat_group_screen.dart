@@ -142,8 +142,9 @@ class _CreateGroupScreenState extends State<CreateGroupScreen>
     setState(() => _isUploadingImage = true);
     try {
       return await widget.chatRepository.uploadGroupPhoto(
-        _groupImageFile!,
-        widget.currentUserId,
+        adminUserId: widget.currentUserId,
+        imageFile: _groupImageFile!,
+        
       );
     } catch (_) {
       _showSnack('Failed to upload group image');

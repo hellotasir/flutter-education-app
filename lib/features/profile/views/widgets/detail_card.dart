@@ -65,7 +65,7 @@ class DetailCard extends StatelessWidget {
                 ] else if (item.progress != null) ...[
                   Text(
                     item.subtitle,
-                    style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    style: TextStyle(color: Colors.white),
                   ),
                   const SizedBox(height: 8),
                   ClipRRect(
@@ -74,7 +74,7 @@ class DetailCard extends StatelessWidget {
                       value: item.progress,
                       minHeight: 6,
                       backgroundColor: cs.surface,
-                      valueColor: AlwaysStoppedAnimation(cs.primary),
+                      valueColor: AlwaysStoppedAnimation(Colors.grey),
                     ),
                   ),
                 ] else

@@ -1,15 +1,15 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
 import 'package:flutter_education_app/core/consts/messages.dart';
 import 'package:flutter_education_app/features/feedback/models/feedback_model.dart';
 import 'package:flutter_education_app/features/feedback/models/filter_state.dart';
 import 'package:flutter_education_app/features/feedback/repositories/feedback_repository.dart';
 import 'package:flutter_education_app/core/routers/app_navigator.dart';
-import 'package:flutter_education_app/core/services/cloud/firestore_service.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
-import 'package:flutter_education_app/features/app/views/widgets/snackbar_widget.dart';
+import 'package:flutter_education_app/core/services/cloud/database_service.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/snackbar_widget.dart';
 import 'package:flutter_education_app/features/feedback/views/widgets/empty_state.dart';
 import 'package:flutter_education_app/features/feedback/views/widgets/feedback_form.dart';
 import 'package:flutter_education_app/features/feedback/views/widgets/feedback_tile.dart';
@@ -31,7 +31,7 @@ class FeedbackScreen extends StatefulWidget {
 }
 
 class _FeedbackScreenState extends State<FeedbackScreen> {
-  final _firestoreService = FirestoreService<FeedbackModel>(
+  final _firestoreService = DatabaseService<FeedbackModel>(
     FeedbackRepository(),
   );
   final _searchCtrl = TextEditingController();

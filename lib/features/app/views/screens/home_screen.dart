@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/app/views/screens/notification_screen.dart';
 import 'package:flutter_education_app/features/location/views/widgets/location_widget.dart';
 import 'package:flutter_education_app/features/profile/models/profile_model.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
 import 'package:flutter_education_app/core/consts/app_details.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
 import 'package:flutter_education_app/features/profile/repositories/profile_repository.dart';
 import 'package:flutter_education_app/core/routers/app_navigator.dart';
-import 'package:flutter_education_app/core/services/cloud/openstreetmap_service.dart';
+import 'package:flutter_education_app/core/services/cloud/location_service.dart';
 import 'package:flutter_education_app/features/chat/views/widgets/inbox_widget.dart';
 import 'package:flutter_education_app/features/profile/views/screens/profile_screen.dart';
 

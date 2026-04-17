@@ -1,18 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
-import 'package:flutter_education_app/features/app/views/widgets/snackbar_widget.dart';
+// ignore_for_file: use_build_context_synchronously
 
-class SignupScreen extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_education_app/core/routers/app_navigator.dart';
+import 'package:flutter_education_app/features/auth/views/screens/login_screen.dart';
+import 'package:flutter_education_app/features/auth/views/view_models/auth_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/snackbar_widget.dart';
+
+class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
 
   @override
-  State<SignupScreen> createState() => _SignupScreenState();
+  ConsumerState<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen>
+class _SignupScreenState extends ConsumerState<SignupScreen>
     with SingleTickerProviderStateMixin {
-  final _repo = AuthRepository();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -25,9 +29,6 @@ class _SignupScreenState extends State<SignupScreen>
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
 
-  void _showSnackbar(String message) =>
-      SnackbarWidget(message: message).showSnackbar(context);
-
   @override
   void initState() {
     super.initState();
@@ -35,7 +36,6 @@ class _SignupScreenState extends State<SignupScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
-
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
         .animate(
@@ -52,6 +52,9 @@ class _SignupScreenState extends State<SignupScreen>
     super.dispose();
   }
 
+  void _showSnackbar(String message) =>
+      SnackbarWidget(message: message).showSnackbar(context);
+
   Future<void> _signup() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
@@ -61,19 +64,16 @@ class _SignupScreenState extends State<SignupScreen>
       _showSnackbar('Please fill in all fields');
       return;
     }
-
     if (password != confirm) {
       _showSnackbar('Passwords do not match');
       return;
     }
 
     setState(() => _loading = true);
-
     try {
-      await _repo.signup(email, password);
+      await ref.read(authRepositoryProvider).signup(email, password);
       if (mounted) {
-        _showSnackbar('Check your email for verification');
-        Navigator.pop(context);
+        AppNavigator(screen: LoginScreen()).navigate(context);
       }
     } catch (e) {
       if (mounted) _showSnackbar(e.toString());

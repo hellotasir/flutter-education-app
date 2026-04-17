@@ -1,13 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
-import 'package:flutter_education_app/features/app/repositories/firestore_repository.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
+import 'package:flutter_education_app/features/app/repositories/database_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class FirestoreService<T> {
-  FirestoreService(this._repository, {FirebaseFirestore? firestore})
+class DatabaseService<T> {
+  DatabaseService(this._repository, {FirebaseFirestore? firestore})
     : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  final FirestoreRepository<T> _repository;
+  final DatabaseRepository<T> _repository;
   final FirebaseFirestore _firestore;
   final AuthRepository _authRepository = AuthRepository();
 

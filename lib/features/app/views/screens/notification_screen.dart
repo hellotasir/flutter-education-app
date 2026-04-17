@@ -2,7 +2,7 @@
 
 import 'package:app_badge_plus/app_badge_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
 import 'package:flutter_education_app/features/chat/models/chat_message_model.dart';
 import 'package:flutter_education_app/features/chat/models/friend_request_model.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';

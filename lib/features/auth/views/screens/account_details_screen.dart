@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
+import 'package:flutter_education_app/features/auth/views/view_models/auth_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_education_app/core/routers/app_navigator.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
 
-class AccountDetailsScreen extends StatelessWidget {
-  const AccountDetailsScreen({super.key, required this.authRepository});
-
-  final AuthRepository authRepository;
+class AccountDetailsScreen extends ConsumerWidget {
+  const AccountDetailsScreen({super.key});
 
   static void open(BuildContext context, AuthRepository authRepository) {
-    AppNavigator(
-      screen: AccountDetailsScreen(authRepository: authRepository),
-    ).navigate(context);
+    AppNavigator(screen: const AccountDetailsScreen()).navigate(context);
   }
 
   String _formatDate(String isoDate) {
@@ -27,9 +25,11 @@ class AccountDetailsScreen extends StatelessWidget {
   String _pad(int n) => n.toString().padLeft(2, '0');
 
   @override
-  Widget build(BuildContext context) {
-    final user = authRepository.currentUser;
-    final session = authRepository.currentSession;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final repo = ref.watch(authRepositoryProvider);
+    final session = repo.currentSession;
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
 
     return MaterialWidget(
       child: Scaffold(
@@ -45,13 +45,13 @@ class AccountDetailsScreen extends StatelessWidget {
               ? const Center(child: Text('No user logged in.'))
               : ListView(
                   children: [
-                    _SectionLabel(label: 'Account'),
+                    const _SectionLabel(label: 'Account'),
                     _DetailTile(
                       icon: Icons.email_outlined,
                       label: 'Email',
                       value: user.email ?? 'N/A',
                     ),
-                    _DetailDivider(),
+                    const _DetailDivider(),
                     _StatusTile(
                       icon: Icons.mark_email_read_outlined,
                       label: 'Email Confirmed',
@@ -60,7 +60,7 @@ class AccountDetailsScreen extends StatelessWidget {
                           ? _formatDate(user.emailConfirmedAt!)
                           : 'Not confirmed',
                     ),
-                    _SectionLabel(label: 'Activity'),
+                    const _SectionLabel(label: 'Activity'),
                     _DetailTile(
                       icon: Icons.calendar_today_outlined,
                       label: 'Created At',
@@ -68,7 +68,7 @@ class AccountDetailsScreen extends StatelessWidget {
                           ? _formatDate(user.createdAt)
                           : 'N/A',
                     ),
-                    _DetailDivider(),
+                    const _DetailDivider(),
                     _DetailTile(
                       icon: Icons.login_outlined,
                       label: 'Last Sign In',
@@ -76,7 +76,7 @@ class AccountDetailsScreen extends StatelessWidget {
                           ? _formatDate(user.lastSignInAt!)
                           : 'N/A',
                     ),
-                    _DetailDivider(),
+                    const _DetailDivider(),
                     _DetailTile(
                       icon: Icons.update_outlined,
                       label: 'Updated At',
@@ -85,16 +85,14 @@ class AccountDetailsScreen extends StatelessWidget {
                           : 'N/A',
                     ),
                     if (session != null) ...[
-                      _SectionLabel(label: 'Session'),
+                      const _SectionLabel(label: 'Session'),
                       _StatusTile(
                         icon: Icons.power_outlined,
                         label: 'Session Active',
-                        status: authRepository.isAuthenticated,
-                        subtitle: authRepository.isAuthenticated
-                            ? 'Active'
-                            : 'Inactive',
+                        status: isAuthenticated,
+                        subtitle: isAuthenticated ? 'Active' : 'Inactive',
                       ),
-                      _DetailDivider(),
+                      const _DetailDivider(),
                       _DetailTile(
                         icon: Icons.timer_outlined,
                         label: 'Session Expires At',
@@ -115,6 +113,10 @@ class AccountDetailsScreen extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Internal list-tile widgets (scoped to this screen)
+// ---------------------------------------------------------------------------
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel({required this.label});
@@ -137,6 +139,8 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _DetailDivider extends StatelessWidget {
+  const _DetailDivider();
+
   @override
   Widget build(BuildContext context) {
     return Divider(
@@ -160,6 +164,7 @@ class _DetailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
@@ -168,9 +173,7 @@ class _DetailTile extends StatelessWidget {
           Icon(
             icon,
             size: 20,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.45),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -179,10 +182,8 @@ class _DetailTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.5),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.3,
                   ),
@@ -190,9 +191,9 @@ class _DetailTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -218,6 +219,8 @@ class _StatusTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = status ? Colors.green : Colors.red;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
@@ -225,9 +228,7 @@ class _StatusTile extends StatelessWidget {
           Icon(
             icon,
             size: 20,
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.45),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -236,10 +237,8 @@ class _StatusTile extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.5),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.3,
                   ),
@@ -247,9 +246,9 @@ class _StatusTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -257,9 +256,7 @@ class _StatusTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: (status ? Colors.green : Colors.red).withValues(
-                alpha: 0.1,
-              ),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -268,7 +265,7 @@ class _StatusTile extends StatelessWidget {
                 Icon(
                   status ? Icons.check_circle_rounded : Icons.cancel_rounded,
                   size: 14,
-                  color: status ? Colors.green : Colors.red,
+                  color: color,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -276,7 +273,7 @@ class _StatusTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: status ? Colors.green : Colors.red,
+                    color: color,
                   ),
                 ),
               ],

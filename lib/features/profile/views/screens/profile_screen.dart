@@ -1,11 +1,12 @@
-// ignore_for_file: strict_top_level_inference
+// lib/features/profile/views/screens/profile_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/profile/views/view_models/profile_providers.dart';
+import 'package:flutter_education_app/features/profile/views/view_models/profile_provider.dart';
+import 'package:flutter_education_app/features/profile/views/view_models/profile_stream_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_education_app/features/app/views/screens/home_screen.dart';
-import 'package:flutter_education_app/features/app/views/widgets/loading_widget.dart';
-import 'package:flutter_education_app/features/app/views/widgets/material_widget.dart';
+import 'package:flutter_education_app/core/widgets/loading_widget.dart';
+import 'package:flutter_education_app/core/widgets/material_widget.dart';
 import 'package:flutter_education_app/features/profile/views/screens/profile_settings_screen.dart';
 import 'package:flutter_education_app/features/profile/views/widgets/error_view.dart';
 import 'package:flutter_education_app/features/profile/views/widgets/profile_body.dart';
@@ -31,15 +32,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   @override
   void initState() {
     super.initState();
+
     _animCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
+
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+
     _slideAnim = Tween<Offset>(
       begin: const Offset(0, 0.04),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
+
+    // Auto-refresh the stream every time this screen is pushed/revisited
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(profileStreamProvider(widget.viewUserId));
+    });
   }
 
   @override
@@ -55,6 +64,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     }
   }
 
+  void _resetAnimation() {
+    _hasAnimated = false;
+    _animCtrl.reset();
+  }
+
   ProfileNotifier get _notifier =>
       ref.read(profileProvider(widget.viewUserId).notifier);
 
@@ -62,6 +76,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     try {
       await _notifier.changeAvatar(context);
       _showSnack('Profile photo updated');
+      // Invalidate stream so UI refreshes immediately after upload
+      ref.invalidate(profileStreamProvider(widget.viewUserId));
     } catch (e) {
       _showSnack('Upload failed: $e', error: true);
     }
@@ -71,6 +87,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     try {
       await _notifier.changeCover(context);
       _showSnack('Cover photo updated');
+      // Invalidate stream so UI refreshes immediately after upload
+      ref.invalidate(profileStreamProvider(widget.viewUserId));
     } catch (e) {
       _showSnack('Upload failed: $e', error: true);
     }
@@ -113,51 +131,77 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final profileState = ref.watch(profileProvider(widget.viewUserId));
-
-    if (!profileState.loading && profileState.profile != null) {
-      _triggerAnimation();
-    }
+    // Watch the stream provider — auto-rebuilds on every new emission
+    final profileAsync = ref.watch(profileStreamProvider(widget.viewUserId));
 
     return MaterialWidget(
       child: Scaffold(
         body: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
-          child: _buildBody(profileState),
-        ),
-      ),
-    );
-  }
+          child: profileAsync.when(
+            // ── Loading ──────────────────────────────────────────────────────
+            loading: () => const Center(
+              key: ValueKey('loading'),
+              child: LoadingIndicator(),
+            ),
 
-  Widget _buildBody(ProfileState profileState) {
-    if (profileState.loading) {
-      return const Center(key: ValueKey('loading'), child: LoadingIndicator());
-    }
+            // ── Error ────────────────────────────────────────────────────────
+            error: (error, stackTrace) => ErrorView(
+              key: const ValueKey('error'),
+              message: error.toString(),
+              onRetry: () {
+                _resetAnimation();
+                ref.invalidate(profileStreamProvider(widget.viewUserId));
+              },
+            ),
 
-    if (profileState.errorMessage != null) {
-      return ErrorView(
-        key: const ValueKey('error'),
-        message: profileState.errorMessage!,
-        onRetry: _notifier.loadProfile,
-      );
-    }
+            // ── Data ─────────────────────────────────────────────────────────
+            data: (profileState) {
+              // Still loading inside the stream (initial fetch in progress)
+              if (profileState.loading) {
+                return const Center(
+                  key: ValueKey('loading'),
+                  child: LoadingIndicator(),
+                );
+              }
 
-    return FadeTransition(
-      key: const ValueKey('content'),
-      opacity: _fadeAnim,
-      child: SlideTransition(
-        position: _slideAnim,
-        child: ProfileBody(
-          profile: profileState.profile!,
-          isOwnProfile: _notifier.isOwnProfile,
-          uploadingAvatar: profileState.uploadingAvatar,
-          uploadingCover: profileState.uploadingCover,
-          onChangeAvatar: _handleAvatarChange,
-          onChangeCover: _handleCoverChange,
-          onOpenSettings: () => _openSettings(profileState.profile),
-          initials: _initials,
-          capitalize: _capitalize,
-          onBack: () => AppNavigator(screen: HomeScreen()).navigate(context),
+              // Error emitted through the stream
+              if (profileState.errorMessage != null) {
+                return ErrorView(
+                  key: const ValueKey('error'),
+                  message: profileState.errorMessage!,
+                  onRetry: () {
+                    _resetAnimation();
+                    ref.invalidate(profileStreamProvider(widget.viewUserId));
+                  },
+                );
+              }
+
+              // Success — trigger animation once per visit
+              _triggerAnimation();
+
+              return FadeTransition(
+                key: const ValueKey('content'),
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: ProfileBody(
+                    profile: profileState.profile!,
+                    isOwnProfile: _notifier.isOwnProfile,
+                    uploadingAvatar: profileState.uploadingAvatar,
+                    uploadingCover: profileState.uploadingCover,
+                    onChangeAvatar: _handleAvatarChange,
+                    onChangeCover: _handleCoverChange,
+                    onOpenSettings: () => _openSettings(profileState.profile),
+                    initials: _initials,
+                    capitalize: _capitalize,
+                    onBack: () =>
+                        AppNavigator(screen: HomeScreen()).navigate(context),
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

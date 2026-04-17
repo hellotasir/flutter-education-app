@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/location/models/local_model.dart';
 import 'package:flutter_education_app/features/location/views/screens/location_screen.dart';
-import 'package:flutter_education_app/core/services/cloud/openstreetmap_service.dart';
+import 'package:flutter_education_app/core/services/cloud/location_service.dart';
 
 class LocationWidget extends StatefulWidget {
   const LocationWidget({

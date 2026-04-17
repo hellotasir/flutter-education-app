@@ -1,4 +1,4 @@
-import 'package:flutter_education_app/core/services/auth/supabase_auth_service.dart';
+import 'package:flutter_education_app/core/services/auth/auth_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthRepository {

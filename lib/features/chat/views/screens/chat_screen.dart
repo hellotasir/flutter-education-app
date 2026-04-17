@@ -611,11 +611,25 @@ class _ChatScreenState extends State<ChatScreen> {
               screen: CallScreen(
                 userID: _otherUserId,
                 userName: _otherUsername,
-                channel: _otherUserId + widget.currentUserId,
+                callID: _otherUserId,
+                isVideoCall: false,
               ),
             ).navigate(context);
           },
           icon: Icon(Icons.call_rounded, size: 20, color: cs.onSurface),
+        ),
+        IconButton(
+          onPressed: () {
+            AppNavigator(
+              screen: CallScreen(
+                userID: _otherUserId,
+                userName: _otherUsername,
+                callID: _otherUserId,
+                isVideoCall: true,
+              ),
+            ).navigate(context);
+          },
+          icon: Icon(Icons.video_call_rounded, size: 20, color: cs.onSurface),
         ),
         _AppBarIconButton(
           icon: Icons.tune_rounded,

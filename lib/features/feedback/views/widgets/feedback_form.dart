@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/core/services/cloud/firestore_service.dart';
+import 'package:flutter_education_app/core/services/cloud/database_service.dart';
 import 'package:flutter_education_app/features/feedback/models/feedback_model.dart';
 import 'package:flutter_education_app/features/feedback/views/widgets/form_sheet_scaffold.dart';
 
@@ -11,7 +11,7 @@ class FeedbackForm extends StatefulWidget {
     this.scrollController,
   });
 
-  final FirestoreService<FeedbackModel> service;
+  final DatabaseService<FeedbackModel> service;
   final FeedbackModel? existing;
   final ScrollController? scrollController;
 

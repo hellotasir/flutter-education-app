@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/views/widgets/loading_widget.dart';
+import 'package:flutter_education_app/core/widgets/loading_widget.dart';
 import 'package:flutter_education_app/features/subscription/models/transaction_history.dart';
 import 'package:flutter_education_app/features/subscription/repositories/transaction_repository.dart';
 import 'package:flutter_education_app/features/subscription/views/screens/subscription_screen.dart';

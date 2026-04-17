@@ -1,13 +1,13 @@
-// ignore_for_file: use_build_context_synchronously
+
 
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/repositories/supabase_repository.dart';
-import 'package:flutter_education_app/features/app/views/screens/account_details_screen.dart';
-import 'package:flutter_education_app/features/app/views/screens/delete_account_screen.dart';
-import 'package:flutter_education_app/features/app/views/screens/mfa_screen.dart';
-import 'package:flutter_education_app/features/app/views/screens/reset_password_screen.dart';
 import 'package:flutter_education_app/features/app/views/screens/settings_screen.dart';
-import 'package:flutter_education_app/features/app/views/screens/update_email_screen.dart';
+import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
+import 'package:flutter_education_app/features/auth/views/screens/account_details_screen.dart';
+import 'package:flutter_education_app/features/auth/views/screens/delete_account_screen.dart';
+import 'package:flutter_education_app/features/auth/views/screens/mfa_screen.dart';
+import 'package:flutter_education_app/features/auth/views/screens/reset_password_screen.dart';
+import 'package:flutter_education_app/features/auth/views/screens/update_email_screen.dart';
 
 void openFullSheet(BuildContext context, Widget child) {
   showModalBottomSheet(
