@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/core/services/local/fcm_token_service.dart';
 import 'package:flutter_education_app/core/services/local/notification_listener_service.dart';
+import 'package:flutter_education_app/features/app/views/screens/notification_settings_screen.dart';
 import 'package:flutter_education_app/features/subscription/views/screens/subscription_screen.dart';
 import 'package:flutter_education_app/features/profile/models/profile_model.dart';
 import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
@@ -12,6 +14,8 @@ import 'package:flutter_education_app/core/widgets/material_widget.dart';
 import 'package:flutter_education_app/core/widgets/snackbar_widget.dart';
 import 'package:flutter_education_app/features/app/views/widgets/others/appearance_sheet.dart';
 import 'package:flutter_education_app/features/app/views/widgets/others/about_app_sheet.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.profile});
@@ -64,6 +68,11 @@ class SettingsScreen extends StatelessWidget {
               label: 'Appearance',
               onTap: () => AppearanceSheet.show(context),
             ),
+            SettingsTile(
+              icon: Icons.notifications_outlined,
+              label: 'Notifications',
+              onTap: () => NotificationSettingsScreen.open(context),
+            ),
             const SectionHeader(label: 'Support'),
             SettingsTile(
               icon: Icons.feedback_outlined,
@@ -81,14 +90,18 @@ class SettingsScreen extends StatelessWidget {
               label: 'Sign Out',
               color: Colors.red.shade600,
               onTap: () async {
-               
                 try {
+               
+                  final user = Supabase.instance.client.auth.currentUser;
+                  final userId = user?.id;
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('background_service_user_id');
                   FirestoreListenerService.instance.stopListening();
-                  await authRepository.logout().then(
-                    (_) =>
-                        AppNavigator(screen: LoginScreen()).navigate(context),
-                     
-                  );
+                  if (userId != null) {
+                    await FcmTokenService.instance.removeToken(userId);
+                  }
+                  await authRepository.logout();
+                  AppNavigator(screen: LoginScreen()).navigate(context);
 
                 } catch (e) {
                   SnackbarWidget(

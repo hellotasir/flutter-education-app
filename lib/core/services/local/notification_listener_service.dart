@@ -11,6 +11,7 @@ class FirestoreListenerService {
 
   StreamSubscription<QuerySnapshot>? _subscription;
   static const String _seenIdsKey = 'seen_friend_request_ids';
+  static const String _inAppKey = 'notif_in_app_enabled';
 
   void startListening(String myUserId) {
     if (_subscription != null) return;
@@ -23,7 +24,7 @@ class FirestoreListenerService {
         .where('status', isEqualTo: 'pending')
         .snapshots()
         .listen(
-          (snapshot) => _onSnapshot(snapshot),
+          _onSnapshot,
           onError: (e) => debugPrint('[Firestore] Error: $e'),
         );
   }
@@ -36,7 +37,12 @@ class FirestoreListenerService {
 
   Future<void> _onSnapshot(QuerySnapshot snapshot) async {
     final prefs = await SharedPreferences.getInstance();
+
+    final inAppEnabled = prefs.getBool(_inAppKey) ?? true;
+    if (!inAppEnabled) return;
+
     final seenIds = (prefs.getStringList(_seenIdsKey) ?? []).toSet();
+    bool changed = false;
 
     for (final change in snapshot.docChanges) {
       if (change.type != DocumentChangeType.added) continue;
@@ -55,9 +61,12 @@ class FirestoreListenerService {
       );
 
       seenIds.add(req.id ?? '');
+      changed = true;
       debugPrint('[Firestore] Notified: ${req.fromUsername} → you');
     }
 
-    await prefs.setStringList(_seenIdsKey, seenIds.toList());
+    if (changed) {
+      await prefs.setStringList(_seenIdsKey, seenIds.toList());
+    }
   }
 }

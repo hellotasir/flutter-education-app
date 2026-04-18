@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +22,6 @@ class NotificationService {
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
-
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -29,7 +29,7 @@ class NotificationService {
     );
 
     await _plugin.initialize(
-      settings: InitializationSettings(
+      settings: const InitializationSettings(
         android: androidSettings,
         iOS: iosSettings,
       ),
@@ -39,7 +39,36 @@ class NotificationService {
 
     await _createAndroidChannel();
     await _requestAndroidPermissions();
+
+    FirebaseMessaging.onMessage.listen(_onForegroundFcmMessage);
   }
+
+  Future<void> _onForegroundFcmMessage(RemoteMessage message) async {
+    final prefs = await SharedPreferences.getInstance();
+    final inAppEnabled = prefs.getBool('notif_in_app_enabled') ?? true;
+    if (!inAppEnabled) return;
+
+    final data = message.data;
+    await showFriendRequestNotification(
+      docId: data['doc_id'] ?? '',
+      fromFullName: data['from_full_name'] ?? '',
+      fromUsername: data['from_username'] ?? '',
+      fromProfilePhoto: data['from_profile_photo'] ?? '',
+    );
+  }
+
+  Future<String?> getFcmToken() async {
+    try {
+      return await FirebaseMessaging.instance.getToken();
+    } catch (e) {
+      debugPrint('[NotificationService] Failed to get FCM token: $e');
+      return null;
+    }
+  }
+
+  Stream<String> get onTokenRefresh =>
+      FirebaseMessaging.instance.onTokenRefresh;
+
 
   Future<void> _createAndroidChannel() async {
     if (!Platform.isAndroid) return;
@@ -113,12 +142,12 @@ class NotificationService {
     debugPrint('[NotificationService] Showed notification for docId=$docId');
   }
 
+
   Future<void> incrementBadge() async {
     final prefs = await SharedPreferences.getInstance();
     final next = (prefs.getInt(_badgeCountKey) ?? 0) + 1;
     await prefs.setInt(_badgeCountKey, next);
-    final isSupported = await AppBadgePlus.isSupported();
-    if (isSupported) {
+    if (await AppBadgePlus.isSupported()) {
       await AppBadgePlus.updateBadge(next);
     }
   }
@@ -127,8 +156,7 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     final next = ((prefs.getInt(_badgeCountKey) ?? 0) - 1).clamp(0, 999);
     await prefs.setInt(_badgeCountKey, next);
-    final isSupported = await AppBadgePlus.isSupported();
-    if (isSupported) {
+    if (await AppBadgePlus.isSupported()) {
       await AppBadgePlus.updateBadge(next);
     }
   }
@@ -136,8 +164,7 @@ class NotificationService {
   Future<void> clearBadge() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_badgeCountKey, 0);
-    final isSupported = await AppBadgePlus.isSupported();
-    if (isSupported) {
+    if (await AppBadgePlus.isSupported()) {
       await AppBadgePlus.updateBadge(0);
     }
   }
@@ -147,11 +174,11 @@ class NotificationService {
     return prefs.getInt(_badgeCountKey) ?? 0;
   }
 
+
   Future<void> cancelNotification(String docId) async {
     final id = docId.hashCode.abs() % 100000;
     await _plugin.cancel(id: id);
   }
-
   Future<void> cancelAllNotifications() async {
     await _plugin.cancelAll();
     await clearBadge();
@@ -159,10 +186,17 @@ class NotificationService {
 
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('[NotificationService] Tapped, docId=${response.payload}');
+    // TODO: navigate to friend requests screen using your AppNavigator
   }
 }
 
 @pragma('vm:entry-point')
 void _onBackgroundNotificationTap(NotificationResponse response) {
   debugPrint('[NotificationService] Background tap: ${response.payload}');
+}
+
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await NotificationService.instance.incrementBadge();
+  debugPrint('[FCM Background] ${message.data}');
 }
