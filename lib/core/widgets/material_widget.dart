@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_education_app/core/consts/app_details.dart';
 import 'package:flutter_education_app/core/theme/app_theme.dart';
 import 'package:flutter_education_app/features/app/views/view_models/app_theme_provider.dart';
-import 'package:flutter_education_app/features/app/views/widgets/network_widget.dart';
+import 'package:flutter_education_app/features/app/views/widgets/others/network_widget.dart';
 
 class MaterialWidget extends ConsumerWidget {
   final Widget child;

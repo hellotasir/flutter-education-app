@@ -48,6 +48,9 @@ dependencies:
   stripe_android: ^12.6.0
   zego_uikit_prebuilt_call: ^4.22.4
   sentry: ^9.17.0
+  firebase_messaging: ^16.2.0
+  intl: ^0.20.2
+  workmanager: ^0.9.0+3
 
 dev_dependencies:
   flutter_test:

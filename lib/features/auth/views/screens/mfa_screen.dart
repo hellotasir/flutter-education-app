@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_education_app/core/routers/app_navigator.dart';
 import 'package:flutter_education_app/core/widgets/material_widget.dart';
 import 'package:flutter_education_app/core/widgets/snackbar_widget.dart';
-import 'package:flutter_education_app/features/app/views/widgets/mfa_widget.dart';
+import 'package:flutter_education_app/features/app/views/widgets/others/mfa_widget.dart';
 
 class MfaScreen extends ConsumerStatefulWidget {
   const MfaScreen({super.key});

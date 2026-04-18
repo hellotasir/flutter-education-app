@@ -1,16 +1,46 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_education_app/features/app/views/screens/notification_screen.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_education_app/core/widgets/loading_widget.dart';
+import 'package:flutter_education_app/features/app/views/widgets/home_empty_profile_state.dart';
+import 'package:flutter_education_app/features/app/views/widgets/home_empty_state.dart';
+import 'package:flutter_education_app/features/app/views/widgets/home_profile_avatar.dart';
 import 'package:flutter_education_app/features/location/views/widgets/location_widget.dart';
 import 'package:flutter_education_app/features/profile/models/profile_model.dart';
 import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
 import 'package:flutter_education_app/core/consts/app_details.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
 import 'package:flutter_education_app/features/profile/repositories/profile_repository.dart';
-import 'package:flutter_education_app/core/routers/app_navigator.dart';
 import 'package:flutter_education_app/core/services/cloud/location_service.dart';
 import 'package:flutter_education_app/features/chat/views/widgets/inbox_widget.dart';
 import 'package:flutter_education_app/features/profile/views/screens/profile_screen.dart';
+
+
+enum _HomeTab {
+  inbox(
+    label: 'Inbox',
+    icon: Icons.chat_bubble_outline_rounded,
+    selectedIcon: Icons.chat_bubble_rounded,
+  ),
+  location(
+    label: 'Location',
+    icon: Icons.location_on_outlined,
+    selectedIcon: Icons.location_on_rounded,
+  );
+
+  const _HomeTab({
+    required this.label,
+    required this.icon,
+    required this.selectedIcon,
+  });
+
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+}
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,30 +49,53 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
-  final ProfileRepository _profileRepository = ProfileRepository();
-  final AuthRepository _authRepository = AuthRepository();
-  final ChatRepository chatRepository = ChatRepository();
+  _HomeTab _currentTab = _HomeTab.inbox;
 
-  late final LocationService locationService = LocationService();
+
+  final _profileRepository = ProfileRepository();
+  final _authRepository = AuthRepository();
+  final _chatRepository = ChatRepository();
+  late final _locationService = LocationService();
+
 
   Stream<ProfileModel?>? _profileStream;
-  
- 
+  StreamSubscription<ProfileModel?>? _profileSub;
+
+
+  ProfileModel? _cachedProfile;
+
+  Object? _profileError;
+
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initProfileStream();
   }
 
-
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _profileSub?.cancel();
+    super.dispose();
+  }
 
   void _initProfileStream() {
-    final userId = _authRepository.currentUser?.id ?? '';
-    final collectionPath = _profileRepository.collectionPath.first;
+    final userId = _authRepository.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      // Not authenticated – surface an error rather than silently failing.
+      setState(() => _profileError = 'User is not authenticated.');
+      return;
+    }
+
+    final collectionPath = _profileRepository.collectionPath.firstOrNull;
+    if (collectionPath == null || collectionPath.isEmpty) {
+      setState(() => _profileError = 'Invalid collection path.');
+      return;
+    }
 
     _profileStream = FirebaseFirestore.instance
         .collection(collectionPath)
@@ -53,149 +106,192 @@ class _HomeScreenState extends State<HomeScreen> {
           if (snapshot.docs.isEmpty) return null;
           return _profileRepository.fromSnapshot(snapshot.docs.first);
         });
+
+    _profileSub = _profileStream!.listen(
+      (profile) {
+        if (!mounted) return;
+        setState(() {
+          if (profile != null) _cachedProfile = profile;
+          _profileError = null;
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        setState(() => _profileError = error);
+      },
+    );
   }
 
-  List<Widget> _studentPages(ProfileModel profile) {
-    return [
-      InboxWidget(
+  Widget _buildPage(_HomeTab tab, ProfileModel profile) {
+    return switch (tab) {
+      _HomeTab.inbox => InboxWidget(
         currentUserId: profile.userId,
         currentUsername: profile.username,
         currentProfilePhoto: profile.profile.profilePhoto,
-        chatRepository: chatRepository,
+        chatRepository: _chatRepository,
       ),
-      LocationWidget(
+      _HomeTab.location => LocationWidget(
         userId: profile.userId,
-        locationService: locationService,
+        locationService: _locationService,
         role: profile.currentMode,
       ),
-    ];
+    };
   }
 
-  List<Widget> _instructorPages(ProfileModel profile) {
-    return [
-      InboxWidget(
-        currentUserId: profile.userId,
-        currentUsername: profile.username,
-        currentProfilePhoto: profile.profile.profilePhoto,
-        chatRepository: chatRepository,
-      ),
-      LocationWidget(
-        userId: profile.userId,
-        locationService: locationService,
-        role: profile.currentMode,
-      ),
-    ];
-  }
 
   void _onTabTapped(int index) {
-    setState(() => _currentIndex = index);
+    final tab = _HomeTab.values[index];
+    if (tab == _currentTab) return;
+    HapticFeedback.selectionClick();
+    setState(() => _currentTab = tab);
   }
 
-  String? _profilePhotoUrl(ProfileModel? profile) {
-    final url = profile?.profile.profilePhoto;
-    return (url != null && url.isNotEmpty) ? url : null;
+
+  void _openProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
   }
+
 
   @override
   Widget build(BuildContext context) {
-    final isLight = Theme.of(context).brightness != Brightness.light;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final colorScheme = theme.colorScheme;
 
     return StreamBuilder<ProfileModel?>(
       stream: _profileStream,
       builder: (context, snapshot) {
-        final profile = snapshot.data;
-        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+       
+        final profile = snapshot.data ?? _cachedProfile;
+        final isFirstLoad =
+            snapshot.connectionState == ConnectionState.waiting &&
+            profile == null;
+        final hasError = _profileError != null || snapshot.hasError;
 
         return Scaffold(
+        
           appBar: AppBar(
+            scrolledUnderElevation: 2,
             elevation: 0,
+            leadingWidth: 56,
             leading: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 0, 8),
+              padding: const EdgeInsets.fromLTRB(12, 8, 0, 8),
               child: Image.asset(
-                isLight
+                isDark
                     ? 'assets/edumap-black-transparent-icon.png'
                     : 'assets/edumap-transparent-icon.png',
+                fit: BoxFit.contain,
               ),
             ),
-            title: const Text(appName),
-            actions: [
-              IconButton(
-                onPressed: () {
-                  AppNavigator(
-                    screen: NotificationScreen(
-                      currentUserId: profile!.userId,
-                      chatRepository:
-                          chatRepository, // or however you provide it
-                    ),
-                  ).navigate(context);
-                },
-                icon: Icon(Icons.notifications_none_rounded),
+            title: Text(
+              appName,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
               ),
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => ProfileScreen()),
-                  );
-                },
-                icon: _buildProfileAvatar(isLoading, profile),
+            ),
+            actions: [
+             
+          
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  tooltip: 'Profile',
+                  onPressed: _openProfile,
+                  icon: HomeProfileAvatar(
+                    isLoading: isFirstLoad,
+                    profile: profile,
+                  ),
+                ),
               ),
             ],
           ),
 
-          body: isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : profile == null
-              ? const Center(child: Text('Profile not found'))
-              : (profile.currentMode == 'student'
-                    ? _studentPages(profile)[_currentIndex]
-                    : _instructorPages(profile)[_currentIndex]),
+       
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            child: _buildBody(
+              context,
+              isFirstLoad: isFirstLoad,
+              hasError: hasError,
+              profile: profile,
+              colorScheme: colorScheme,
+            ),
+          ),
 
           bottomNavigationBar: NavigationBar(
-            selectedIndex: _currentIndex,
+            selectedIndex: _currentTab.index,
             onDestinationSelected: _onTabTapped,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.chat_bubble_outline_rounded),
-                selectedIcon: Icon(Icons.chat_bubble_rounded),
-                label: 'Inbox',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.location_on_outlined),
-                selectedIcon: Icon(Icons.location_on_rounded),
-                label: 'Location',
-              ),
-            ],
+            labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+            destinations: _HomeTab.values
+                .map(
+                  (tab) => NavigationDestination(
+                    icon: Icon(tab.icon),
+                    selectedIcon: Icon(tab.selectedIcon),
+                    label: tab.label,
+                  ),
+                )
+                .toList(),
           ),
         );
       },
     );
   }
 
-  Widget _buildProfileAvatar(bool isLoading, ProfileModel? profile) {
-    if (isLoading) {
-      return const SizedBox(
-        width: 32,
-        height: 32,
-        child: CircularProgressIndicator(strokeWidth: 2),
+
+  Widget _buildBody(
+    BuildContext context, {
+    required bool isFirstLoad,
+    required bool hasError,
+    required ProfileModel? profile,
+    required ColorScheme colorScheme,
+  }) {
+    if (isFirstLoad) {
+      return Center(child: const LoadingIndicator());
+    }
+
+    if (hasError) {
+      return HomeErrorState(
+        key: const ValueKey('error'),
+        message: _friendlyError(_profileError ?? 'Unknown error'),
+        onRetry: () {
+          setState(() {
+            _profileError = null;
+            _cachedProfile = null;
+          });
+          _profileSub?.cancel();
+          _initProfileStream();
+        },
       );
     }
 
-    final photoUrl = _profilePhotoUrl(profile);
-
-    if (photoUrl != null) {
-      return CircleAvatar(radius: 16, backgroundImage: NetworkImage(photoUrl));
+    if (profile == null) {
+      return const HomeEmptyProfileState(key: ValueKey('empty'));
     }
 
-    final initial = profile?.username.isNotEmpty == true
-        ? profile!.username[0].toUpperCase()
-        : null;
-
-    return CircleAvatar(
-      radius: 16,
-      child: initial != null
-          ? Text(initial)
-          : const Icon(Icons.person, size: 16),
+    return KeyedSubtree(
+      key: ValueKey(_currentTab),
+      child: _buildPage(_currentTab, profile),
     );
   }
+
+  String _friendlyError(Object error) {
+    if (error is FirebaseException) {
+      return switch (error.code) {
+        'permission-denied' =>
+          'You don\'t have permission to access this data.',
+        'unavailable' =>
+          'Service is temporarily unavailable. Please try again.',
+        'not-found' => 'Your profile data could not be found.',
+        _ => 'A network error occurred (${error.code}).',
+      };
+    }
+    return 'Something went wrong. Please try again.';
+  }
 }
+

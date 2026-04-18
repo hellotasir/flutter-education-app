@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/core/services/local/connectivity_service.dart';
-import '../screens/error_screen.dart';
+import '../../screens/error_screen.dart';
 
 class NetworkWidget extends StatefulWidget {
   final Widget child;

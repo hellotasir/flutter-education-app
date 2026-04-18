@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_education_app/core/services/local/notification_listener_service.dart';
 import 'package:flutter_education_app/features/subscription/views/screens/subscription_screen.dart';
 import 'package:flutter_education_app/features/profile/models/profile_model.dart';
 import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
-import 'package:flutter_education_app/features/app/views/widgets/account_sheet.dart';
+import 'package:flutter_education_app/features/app/views/widgets/others/account_sheet.dart';
 import 'package:flutter_education_app/core/routers/app_navigator.dart';
 import 'package:flutter_education_app/features/auth/views/screens/login_screen.dart';
 import 'package:flutter_education_app/features/feedback/views/screens/feedback_screen.dart';
 import 'package:flutter_education_app/features/profile/views/screens/profile_settings_screen.dart';
 import 'package:flutter_education_app/core/widgets/material_widget.dart';
 import 'package:flutter_education_app/core/widgets/snackbar_widget.dart';
-import 'package:flutter_education_app/features/app/views/widgets/appearance_sheet.dart';
-import 'package:flutter_education_app/features/app/views/widgets/about_app_sheet.dart';
+import 'package:flutter_education_app/features/app/views/widgets/others/appearance_sheet.dart';
+import 'package:flutter_education_app/features/app/views/widgets/others/about_app_sheet.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key, required this.profile});
@@ -56,7 +57,7 @@ class SettingsScreen extends StatelessWidget {
               label: 'Account Settings',
               onTap: () => AccountSheet.show(context, authRepository),
             ),
-
+           
             const SectionHeader(label: 'Preferences'),
             SettingsTile(
               icon: Icons.dark_mode_outlined,
@@ -82,11 +83,13 @@ class SettingsScreen extends StatelessWidget {
               onTap: () async {
                
                 try {
+                  FirestoreListenerService.instance.stopListening();
                   await authRepository.logout().then(
                     (_) =>
                         AppNavigator(screen: LoginScreen()).navigate(context),
                      
                   );
+
                 } catch (e) {
                   SnackbarWidget(
                     message: 'Logout failed',
@@ -101,8 +104,6 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 }
-
-// ─── Sheet helpers ────────────────────────────────────────────────────────────
 
 Future<T?> openFullSheet<T>(
   BuildContext context,
@@ -128,7 +129,6 @@ Future<T?> openFullSheet<T>(
   );
 }
 
-// ─── SheetScaffold ────────────────────────────────────────────────────────────
 
 class SheetScaffold extends StatelessWidget {
   const SheetScaffold({
@@ -195,7 +195,6 @@ class SheetScaffold extends StatelessWidget {
   }
 }
 
-// ─── Shared tile widgets ──────────────────────────────────────────────────────
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({super.key, required this.label});

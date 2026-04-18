@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_education_app/features/auth/repositories/auth_repository.dart';
-import 'package:flutter_education_app/features/app/views/widgets/network_widget.dart';
+import 'package:flutter_education_app/features/app/views/widgets/others/network_widget.dart';
 import 'package:flutter_education_app/features/chat/models/conversation_model.dart';
 import 'package:flutter_education_app/features/chat/repositories/chat_repository.dart';
 import 'package:flutter_education_app/features/chat/views/screens/chat_group_screen.dart';
@@ -9,7 +9,7 @@ import 'package:flutter_education_app/features/chat/views/screens/user_search_sc
 import 'package:flutter_education_app/features/chat/views/widgets/tabs/chat_tab.dart';
 import 'package:flutter_education_app/features/chat/views/widgets/tabs/friends_tab.dart';
 import 'package:flutter_education_app/features/chat/views/widgets/tabs/request_tab.dart';
-import 'package:flutter_education_app/features/app/views/widgets/mfa_widget.dart';
+import 'package:flutter_education_app/features/app/views/widgets/others/mfa_widget.dart';
 import 'package:flutter_education_app/core/routers/app_navigator.dart';
 
 class InboxWidget extends StatefulWidget {
@@ -193,8 +193,9 @@ class _InboxWidgetState extends State<InboxWidget>
                       overlayColor: WidgetStateProperty.all(Colors.transparent),
                       tabs: const [
                         Tab(text: 'Chats'),
-                        Tab(text: 'Requests'),
+                       
                         Tab(text: 'Friends'),
+                        Tab(text: 'Requests'),
                       ],
                     ),
                   ),
@@ -210,16 +211,17 @@ class _InboxWidgetState extends State<InboxWidget>
                         chatRepository: widget.chatRepository,
                         onOpenChat: _openChat,
                       ),
-                      RequestsTab(
-                        currentUserId: widget.currentUserId,
-                        chatRepository: widget.chatRepository,
-                      ),
+                    
                       FriendsTab(
                         currentUserId: widget.currentUserId,
                         currentUsername: widget.currentUsername,
                         currentProfilePhoto: widget.currentProfilePhoto,
                         chatRepository: widget.chatRepository,
                         onOpenChat: _openChat,
+                      ),
+                      RequestsTab(
+                        currentUserId: widget.currentUserId,
+                        chatRepository: widget.chatRepository,
                       ),
                     ],
                   ),
